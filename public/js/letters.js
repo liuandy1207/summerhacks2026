@@ -66,6 +66,11 @@ export function initLetterModal() {
   document.getElementById('close-modal').addEventListener('click', () => {
     document.getElementById('letter-modal').classList.add('hidden');
   });
+  document.getElementById('letter-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'letter-modal') {
+      document.getElementById('letter-modal').classList.add('hidden');
+    }
+  });
 }
 
 window.openLetter = async function(letterId) {
@@ -148,6 +153,11 @@ let journeyLayer;
 export function initJourneyModal() {
   document.getElementById('close-journey-modal').addEventListener('click', () => {
     document.getElementById('journey-modal').classList.add('hidden');
+  });
+  document.getElementById('journey-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'journey-modal') {
+      document.getElementById('journey-modal').classList.add('hidden');
+    }
   });
 }
 
