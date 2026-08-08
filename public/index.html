@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LOOP — letters to strangers</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">LOOP</div>
+  <nav class="tabs">
+    <button class="tab active" data-view="map">Map</button>
+    <button class="tab" data-view="write">Write a letter</button>
+    <button class="tab" data-view="pocket">Pocket</button>
+    <button class="tab" data-view="dashboard">Data</button>
+  </nav>
+  <div class="you">you are <span id="user-id-short"></span></div>
+</header>
+
+<main>
+  <section id="view-map" class="view active">
+    <div class="map-hint">Click anywhere on the map to set your current location (simulated GPS). Letters within 2km will appear; get within 50m to open one.</div>
+    <div id="map"></div>
+  </section>
+
+  <section id="view-write" class="view">
+    <div class="letter-form-wrap">
+      <h1>Write to a stranger</h1>
+      <p class="sub">Anonymous. Once you drop it, it's not yours anymore.</p>
+      <textarea id="letter-text" maxlength="8000" placeholder="Dear stranger,"></textarea>
+      <div class="word-count"><span id="word-count">0</span> / 1000 words</div>
+      <button id="submit-letter" class="primary">Drop letter at my location</button>
+      <div id="write-status" class="status"></div>
+    </div>
+  </section>
+
+  <section id="view-pocket" class="view">
+    <h1>Your pocket</h1>
+    <p class="sub">Letters you're currently holding. Re-drop within 24h or they'll auto-drop where you are.</p>
+    <div id="pocket-list" class="pocket-list"></div>
+  </section>
+
+  <section id="view-dashboard" class="view">
+    <h1>The loop, in numbers</h1>
+    <div class="hero-stat">
+      <div class="hero-number" id="hero-distance">0</div>
+      <div class="hero-label">total kilometers traveled by letters in this loop</div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-num" id="stat-letters">0</div><div class="stat-label">letters written</div></div>
+      <div class="stat-card"><div class="stat-num" id="stat-hands">0</div><div class="stat-label">hands they've passed through</div></div>
+      <div class="stat-card"><div class="stat-num" id="stat-avg-hands">0</div><div class="stat-label">avg hands per letter</div></div>
+    </div>
+    <div class="breakdown">
+      <div class="breakdown-col">
+        <h3>How readers felt</h3>
+        <div id="reaction-breakdown"></div>
+      </div>
+      <div class="breakdown-col">
+        <h3>Tone of letters written</h3>
+        <div id="tone-breakdown"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- Letter reading modal -->
+<div id="letter-modal" class="modal hidden">
+  <div class="modal-card">
+    <button class="close" id="close-modal">×</button>
+    <div class="envelope-art" id="modal-envelope"></div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- Journey timeline modal -->
+<div id="journey-modal" class="modal hidden">
+  <div class="modal-card">
+    <button class="close" id="close-journey-modal">×</button>
+    <h2>Journey</h2>
+    <div id="journey-body"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
