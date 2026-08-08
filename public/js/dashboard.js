@@ -15,12 +15,12 @@ export async function loadDashboard() {
 
 function renderAuthoredCard(l) {
   return `
-    <div class="slot slot-filled">
+    <div class="slot slot-filled" style="cursor:pointer" onclick="readLetter('${l.id}', false)">
       <div class="slot-seal">✉️</div>
       <div class="pocket-preview">"${escapeHtml(l.title || l.preview_line || '')}"</div>
       <div class="pocket-meta">${l.status} · ${l.hands_count} hands · ${l.total_distance_km} km · ${l.word_count} words</div>
       <div class="pocket-meta">written ${new Date(l.created_at).toLocaleString()}</div>
-      <div style="margin-top:10px;">
+      <div style="margin-top:10px;" onclick="event.stopPropagation()">
         <button class="primary" style="margin-top:0" onclick="viewJourney('${l.id}')">View journey</button>
       </div>
     </div>

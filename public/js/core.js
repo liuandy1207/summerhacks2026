@@ -103,6 +103,12 @@ export async function fetchDashboard(userId) {
   return res.json();
 }
 
+export async function fetchLetterRead(id, userId) {
+  const res = await fetch(`${API}/api/letters/${id}/read?user_id=${userId}`);
+  const data = await res.json();
+  return { ok: res.ok, data };
+}
+
 // ---- utils --------------------------------------------------------------------
 export function escapeHtml(s) {
   return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

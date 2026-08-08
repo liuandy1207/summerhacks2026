@@ -146,6 +146,34 @@ router.post('/', wrap(async (req, res) => {
   res.json({ id: letterId, title: trimmedTitle || null });
 }));
 
+// GET /api/letters/:id/read — full text of a letter you're currently
+// holding OR authored. Unlike POST /pickup, this doesn't check proximity
+// or create a new pickup_event — it's for re-reading something you
+// already have (Pocket tab, Data tab), not discovering a new letter.
+router.get('/:id/read', wrap(async (req, res) => {
+  const { id } = req.params;
+  const { user_id } = req.query;
+  if (!user_id) return res.status(400).json({ error: 'missing_fields' });
+
+  const { data: letter, error: letErr } = await db
+    .from('letters').select('id, title, text, origin_user_id').eq('id', id).maybeSingle();
+  if (letErr) throw letErr;
+  if (!letter) return res.status(404).json({ error: 'not_found' });
+
+  const isAuthor = letter.origin_user_id === user_id;
+  let currentlyHeld = isAuthor;
+  if (!currentlyHeld) {
+    const { data: held, error: heldErr } = await db
+      .from('pickup_events').select('id')
+      .eq('letter_id', id).eq('user_id', user_id).is('redropped_at', null).maybeSingle();
+    if (heldErr) throw heldErr;
+    currentlyHeld = !!held;
+  }
+  if (!currentlyHeld) return res.status(403).json({ error: 'not_yours_to_read' });
+
+  res.json({ id: letter.id, title: letter.title, text: letter.text });
+}));
+
 // GET /api/letters/:id/journey — only if user has ever picked it up
 router.get('/:id/journey', wrap(async (req, res) => {
   const { id } = req.params;

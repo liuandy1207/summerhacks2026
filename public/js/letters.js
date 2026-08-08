@@ -6,13 +6,19 @@
 // window.promptRedrop, window.viewJourney because they're invoked from
 // inline onclick="" strings in generated HTML (map popups, pocket cards,
 // the letter modal itself) — that's preserved here.
-import { userId, state, escapeHtml, fetchPocket, pickupLetter, reactToLetter, redropLetterApi, fetchJourney } from './core.js';
+import { userId, state, escapeHtml, fetchPocket, fetchLetterRead, pickupLetter, reactToLetter, redropLetterApi, fetchJourney } from './core.js';
 import { refreshMap } from './map.js';
 
 // ---- pocket tab -------------------------------------------------------------
 
 export async function loadPocket() {
   const data = await fetchPocket(userId);
+
+  if (data.error) {
+    document.getElementById('pocket-list').innerHTML =
+      `<p style="color:#9C3B34">Couldn't load your pocket (${data.error}). Try refreshing.</p>`;
+    return;
+  }
 
   const slots = [];
   for (let i = 0; i < data.slots_max; i++) {
@@ -32,12 +38,12 @@ function renderFilledSlot(l) {
     : `written by you — not dropped yet`;
 
   return `
-    <div class="slot slot-filled">
+    <div class="slot slot-filled" style="cursor:pointer" onclick="readLetter('${l.letter_id}', true)">
       <div class="slot-seal">✉️</div>
       <div class="pocket-preview">"${escapeHtml(l.preview_line || '')}"</div>
       <div class="pocket-meta">${statusLine}</div>
       <div class="pocket-meta">auto-redrops ${new Date(l.auto_redrop_at).toLocaleString()} if you don't act</div>
-      <div style="margin-top:10px; display:flex; gap:8px;">
+      <div style="margin-top:10px; display:flex; gap:8px;" onclick="event.stopPropagation()">
         ${l.has_been_dropped ? `<button class="primary" style="margin-top:0" onclick="viewJourney('${l.letter_id}')">View journey</button>` : ''}
         <button class="primary" style="margin-top:0; background:#5B6472" onclick="promptRedrop('${l.letter_id}')">${dropLabel}</button>
       </div>
@@ -89,6 +95,36 @@ window.openLetter = async function(letterId) {
   `;
   document.getElementById('letter-modal').classList.remove('hidden');
   refreshMap();
+};
+
+// Opens the reading modal for a letter you already hold or authored —
+// used by Pocket and Data tab cards. Unlike openLetter(), this doesn't
+// call the pickup endpoint (no proximity check, no new pickup_event).
+// canRedrop should only be true when the letter is currently in your
+// pocket (Pocket tab cards); Data tab letters may already be dropped
+// elsewhere, so they only get Read + View journey.
+window.readLetter = async function(letterId, canRedrop) {
+  const { ok, data } = await fetchLetterRead(letterId, userId);
+  if (!ok) {
+    alert({ not_yours_to_read: "You don't currently hold this letter." }[data.error] || 'Could not open letter.');
+    return;
+  }
+
+  document.getElementById('modal-envelope').textContent = `✉️`;
+  document.getElementById('modal-body').innerHTML = `
+    <p>${escapeHtml(data.text)}</p>
+    <div class="reactions">
+      <button onclick="react('${letterId}','seen')">Felt seen</button>
+      <button onclick="react('${letterId}','less_alone')">Felt less alone</button>
+      <button onclick="react('${letterId}','moved')">Moved</button>
+      <button onclick="react('${letterId}','unsettled')">Unsettled</button>
+    </div>
+    <div style="margin-top:20px; display:flex; gap:10px;">
+      <button class="primary" style="margin-top:0" onclick="viewJourney('${letterId}')">View journey</button>
+      ${canRedrop ? `<button class="primary" style="margin-top:0; background:#5B6472" onclick="promptRedrop('${letterId}')">Re-drop here</button>` : ''}
+    </div>
+  `;
+  document.getElementById('letter-modal').classList.remove('hidden');
 };
 
 window.react = async function(letterId, reaction) {
