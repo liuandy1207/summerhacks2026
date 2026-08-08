@@ -9,9 +9,15 @@ let letterMarkers = [];
 
 export function initMap() {
   map = L.map('map').setView([state.lat, state.lng], 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
+  L.tileLayer(
+    "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    {
+      attribution:
+        '&copy; OpenStreetMap contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: "abcd",
+      maxZoom: 19,
+    },
+  ).addTo(map);
 
   youMarker = L.circleMarker([state.lat, state.lng], {
     radius: 8, color: '#9C3B34', fillColor: '#9C3B34', fillOpacity: 1
