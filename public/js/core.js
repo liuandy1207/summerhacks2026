@@ -98,8 +98,8 @@ export async function fetchPocket(userId) {
   return res.json();
 }
 
-export async function fetchDashboard() {
-  const res = await fetch(`${API}/api/dashboard`);
+export async function fetchDashboard(userId) {
+  const res = await fetch(`${API}/api/dashboard?user_id=${userId}`);
   return res.json();
 }
 
