@@ -1,16 +1,35 @@
-// Entry point: wires up identity display + initializes every view module.
-// Loaded as a <script type="module"> from index.html.
-import { userId } from './state.js';
-import { initMap } from './map.js';
-import { initTabs } from './tabs.js';
+// Entry point: wires up identity display, top-nav tab switching, and
+// initializes every view module. Loaded as a <script type="module"> from
+// index.html.
+import { userId, loadConfig } from './core.js';
+import { initMap, invalidateMapSize } from './map.js';
 import { initWriteView } from './write.js';
-import { initLetterModal } from './letterModal.js';
-import { initJourneyModal } from './journey.js';
+import { loadPocket, initLetterModal, initJourneyModal } from './letters.js';
+import { loadDashboard } from './dashboard.js';
 
 document.getElementById('user-id-short').textContent = userId;
 
-initTabs();
-initMap();
-initWriteView();
-initLetterModal();
-initJourneyModal();
+function initTabs() {
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('view-' + tab.dataset.view).classList.add('active');
+      if (tab.dataset.view === 'pocket') loadPocket();
+      if (tab.dataset.view === 'dashboard') loadDashboard();
+      if (tab.dataset.view === 'map') invalidateMapSize();
+    });
+  });
+}
+
+async function boot() {
+  await loadConfig(); // must resolve before any view reads limits (e.g. MIN_WORDS)
+  initTabs();
+  initMap();
+  initWriteView();
+  initLetterModal();
+  initJourneyModal();
+}
+
+boot();

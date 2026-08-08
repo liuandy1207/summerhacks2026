@@ -1,4 +1,38 @@
-// STUB: replace this whole module with a real LLM call later.
+// Small helpers shared by every feature file (letters.js, map.js). Kept in
+// one place so a feature file only needs `require('./shared')` instead of
+// reaching into several tiny utility modules.
+const crypto = require('crypto');
+const db = require('./db');
+
+// ---- ids / time --------------------------------------------------------
+const now = () => new Date().toISOString();
+const uid = () => crypto.randomUUID();
+
+// ---- geo ----------------------------------------------------------------
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// ---- users ----------------------------------------------------------------
+function getOrCreateUser(userId, lat, lng) {
+  let user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  if (!user) {
+    db.prepare('INSERT INTO users (id, created_at, last_lat, last_lng) VALUES (?,?,?,?)')
+      .run(userId, now(), lat ?? null, lng ?? null);
+    user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  } else if (lat != null && lng != null) {
+    db.prepare('UPDATE users SET last_lat = ?, last_lng = ? WHERE id = ?').run(lat, lng, userId);
+  }
+  return user;
+}
+
+// ---- moderation (STUB: replace with a real LLM call later) ---------------
 // The system prompt to use when you do:
 //
 // "You classify anonymous letters for a public letter-exchange app. Given the
@@ -13,7 +47,6 @@
 //
 // IMPORTANT: if you ever wire up real self-harm flagging, do NOT just silently
 // block the letter — route it to a human-reviewed support flow instead.
-
 const BAD_WORDS = [
   // minimal placeholder list — swap for a real profanity/hate-speech list
   'slur1', 'slur2', 'hateword1'
@@ -43,4 +76,4 @@ function moderateAndTag(text) {
   };
 }
 
-module.exports = { moderateAndTag, TONES };
+module.exports = { now, uid, haversineKm, getOrCreateUser, moderateAndTag, TONES };

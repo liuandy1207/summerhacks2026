@@ -1,5 +1,5 @@
 // "Data" tab: aggregate stats for the whole loop.
-import { fetchDashboard } from './api.js';
+import { fetchDashboard } from './core.js';
 
 export async function loadDashboard() {
   const data = await fetchDashboard();

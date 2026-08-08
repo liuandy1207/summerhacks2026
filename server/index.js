@@ -1,18 +1,21 @@
-// App wiring only: no business logic here. Add new route groups by
-// creating a file in server/routes/ and mounting it below.
+// App wiring only: no business logic here. Add a new feature by creating a
+// file in server/ that exports an express.Router() and mounting it below.
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
-const lettersRouter = require('./routes/letters');
-const mapRouter = require('./routes/map');
-const pocketRouter = require('./routes/pocket');
-const dashboardRouter = require('./routes/dashboard');
+const PARAMS = require('./config');
+const { lettersRouter, pocketRouter } = require('./letters');
+const mapRouter = require('./map');
+const dashboardRouter = require('./dashboard');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
+
+// GET /api/config — exposes tunable PARAMS so the frontend never hardcodes limits.
+app.get('/api/config', (req, res) => res.json(PARAMS));
 
 app.use('/api/letters', lettersRouter);
 app.use('/api/map', mapRouter);

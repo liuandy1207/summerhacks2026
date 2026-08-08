@@ -32,9 +32,11 @@
     <div class="letter-form-wrap">
       <h1>Write to a stranger</h1>
       <p class="sub">Anonymous. Once you drop it, it's not yours anymore.</p>
-      <textarea id="letter-text" maxlength="8000" placeholder="Dear stranger,"></textarea>
-      <div class="word-count"><span id="word-count">0</span> / 1000 words</div>
-      <button id="submit-letter" class="primary">Drop letter at my location</button>
+      <input id="letter-title" type="text" placeholder="Title (optional)" />
+      <div class="title-count"><span id="title-count">0</span> / <span id="title-max">—</span></div>
+      <textarea id="letter-text" placeholder="Dear stranger,"></textarea>
+      <div class="word-count"><span id="word-count">0</span> / <span id="word-max">—</span> words <span id="word-min-hint"></span></div>
+      <button id="submit-letter" class="primary">Save to pocket</button>
       <div id="write-status" class="status"></div>
     </div>
   </section>

@@ -3,7 +3,7 @@
 // so the map and dashboard don't look empty for a demo.
 const crypto = require('crypto');
 const db = require('./db');
-const { moderateAndTag } = require('./moderation');
+const { moderateAndTag } = require('./shared');
 
 const uid = () => crypto.randomUUID();
 const hoursAgo = h => new Date(Date.now() - h * 3600000).toISOString();

@@ -1,9 +1,9 @@
+// GET /api/map — fog-of-war letter positions around a user's location.
 const express = require('express');
-const db = require('../db');
-const PARAMS = require('../config');
-const { haversineKm } = require('../utils/geo');
-const { getOrCreateUser } = require('../services/users');
-const { processAutoRedrops, latestDropOf } = require('../services/letters');
+const db = require('./db');
+const PARAMS = require('./config');
+const { haversineKm, getOrCreateUser } = require('./shared');
+const { processAutoRedrops, latestDropOf } = require('./letters');
 
 const router = express.Router();
 

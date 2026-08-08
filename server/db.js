@@ -3,7 +3,7 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 
-const db = new Database(path.join(__dirname, '..', '..', 'loop.db'));
+const db = new Database(path.join(__dirname, '..', 'loop.db'));
 db.pragma('journal_mode = WAL');
 
 db.exec(`
@@ -16,11 +16,12 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS letters (
   id TEXT PRIMARY KEY,
+  title TEXT,
   text TEXT NOT NULL,
   word_count INTEGER NOT NULL,
   tone_tag TEXT,
   preview_line TEXT,
-  status TEXT NOT NULL DEFAULT 'active', -- active | lost
+  status TEXT NOT NULL DEFAULT 'active',
   created_at TEXT NOT NULL,
   hands_count INTEGER NOT NULL DEFAULT 0,
   total_distance_km REAL NOT NULL DEFAULT 0,

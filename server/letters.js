@@ -1,71 +1,111 @@
-// All /api/letters/* routes: write, pickup, react, redrop, vote, report, journey.
+// Everything for the "letters" feature: writing, picking up, reacting,
+// redropping, voting, reporting, journey history, and the pocket list of
+// letters a user currently holds. Exports one router mounted twice by
+// server/index.js (at /api/letters and /api/pocket).
 const express = require('express');
-const db = require('../db');
-const PARAMS = require('../config');
-const { now, uid } = require('../utils/ids');
-const { haversineKm } = require('../utils/geo');
-const { moderateAndTag } = require('../moderation');
-const { getOrCreateUser } = require('../services/users');
-const { heldLettersCount, latestDropOf, processAutoRedrops, redropLetter } = require('../services/letters');
+const db = require('./db');
+const PARAMS = require('./config');
+const { now, uid, haversineKm, getOrCreateUser, moderateAndTag } = require('./shared');
+
+// ---- shared letter logic (used by multiple routes below) -----------------
+
+// letters this user currently holds (picked up, not yet redropped)
+function heldLettersCount(userId) {
+  return db.prepare(
+    `SELECT COUNT(*) c FROM pickup_events WHERE user_id = ? AND redropped_at IS NULL`
+  ).get(userId).c;
+}
+
+function latestDropOf(letterId) {
+  return db.prepare(
+    `SELECT * FROM drop_events WHERE letter_id = ? ORDER BY dropped_at DESC LIMIT 1`
+  ).get(letterId);
+}
+
+// process any letters this user is holding past the auto-redrop window
+function processAutoRedrops(userId) {
+  const overdue = db.prepare(`
+    SELECT pe.* FROM pickup_events pe
+    WHERE pe.user_id = ? AND pe.redropped_at IS NULL
+      AND datetime(pe.picked_up_at, '+${PARAMS.AUTO_REDROP_HOURS} hours') <= datetime('now')
+  `).all(userId);
+
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  if (!user || user.last_lat == null) return;
+
+  for (const pe of overdue) {
+    redropLetter(pe.letter_id, userId, user.last_lat, user.last_lng, true);
+  }
+}
+
+function redropLetter(letterId, userId, lat, lng, isAuto) {
+  const openPickup = db.prepare(
+    `SELECT * FROM pickup_events WHERE letter_id = ? AND user_id = ? AND redropped_at IS NULL`
+  ).get(letterId, userId);
+  if (!openPickup) return { error: 'not_holding_letter' };
+
+  const prevDrop = latestDropOf(letterId);
+  const dist = prevDrop ? haversineKm(prevDrop.lat, prevDrop.lng, lat, lng) : 0;
+
+  db.prepare(`INSERT INTO drop_events (id, letter_id, user_id, lat, lng, dropped_at, is_auto_redrop)
+              VALUES (?,?,?,?,?,?,?)`)
+    .run(uid(), letterId, userId, lat, lng, now(), isAuto ? 1 : 0);
+
+  db.prepare(`UPDATE pickup_events SET redropped_at = ? WHERE id = ?`).run(now(), openPickup.id);
+
+  db.prepare(`UPDATE letters SET total_distance_km = total_distance_km + ? WHERE id = ?`)
+    .run(dist, letterId);
+
+  return { ok: true, distance_km: dist, auto: !!isAuto };
+}
+
+// ---- routes ----------------------------------------------------------------
 
 const router = express.Router();
 
 // POST /api/letters — write a new letter into your pocket (not dropped yet)
-// body: { user_id, lat, lng, text }
+// body: { user_id, lat, lng, text, title }
 router.post('/', (req, res) => {
-  const { user_id, lat, lng, text } = req.body;
+  const { user_id, lat, lng, text, title } = req.body;
   if (!user_id || lat == null || lng == null || !text || !text.trim()) {
-    return res.status(400).json({ error: "missing_fields" });
+    return res.status(400).json({ error: 'missing_fields' });
   }
-  const wordCount = text.trim().split(/\s+/).length;
+
+  const trimmedTitle = (title || '').trim();
+  if (trimmedTitle.length > PARAMS.MAX_TITLE_LENGTH) {
+    return res.status(400).json({ error: 'title_too_long', max_title_length: PARAMS.MAX_TITLE_LENGTH });
+  }
+
+  const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+  if (wordCount < PARAMS.MIN_WORDS) {
+    return res.status(400).json({ error: 'too_short', min_words: PARAMS.MIN_WORDS });
+  }
   if (wordCount > PARAMS.MAX_WORDS) {
-    return res
-      .status(400)
-      .json({ error: "too_long", max_words: PARAMS.MAX_WORDS });
+    return res.status(400).json({ error: 'too_long', max_words: PARAMS.MAX_WORDS });
   }
 
   getOrCreateUser(user_id, lat, lng);
   processAutoRedrops(user_id);
 
   if (heldLettersCount(user_id) >= PARAMS.MAX_HELD_LETTERS) {
-    return res
-      .status(409)
-      .json({ error: "pocket_full", limit: PARAMS.MAX_HELD_LETTERS });
+    return res.status(409).json({ error: 'pocket_full', limit: PARAMS.MAX_HELD_LETTERS });
   }
 
   const mod = moderateAndTag(text);
   if (mod.flagged) {
-    return res.status(422).json({ error: "flagged", reason: mod.flag_reason });
+    return res.status(422).json({ error: 'flagged', reason: mod.flag_reason });
   }
 
   const letterId = uid();
-  db.prepare(
-    `INSERT INTO letters
-    (id, text, word_count, tone_tag, preview_line, status, created_at, hands_count, total_distance_km, upvotes, downvotes, origin_user_id)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
-  ).run(
-    letterId,
-    text.trim(),
-    wordCount,
-    mod.tone_tag,
-    mod.preview_line,
-    "active",
-    now(),
-    0,
-    0,
-    0,
-    0,
-    user_id,
-  );
+  db.prepare(`INSERT INTO letters
+    (id, title, text, word_count, tone_tag, preview_line, status, created_at, hands_count, total_distance_km, upvotes, downvotes, origin_user_id)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    .run(letterId, trimmedTitle || null, text.trim(), wordCount, mod.tone_tag, mod.preview_line, 'active', now(), 0, 0, 0, 0, user_id);
 
-  // Writing a letter puts it straight into the writer's pocket — no
-  // drop_event yet. It only becomes visible on the map once they drop it
-  // (via /api/letters/:id/redrop, which doubles as "first drop").
-  db.prepare(
-    `INSERT INTO pickup_events (id, letter_id, user_id, picked_up_at) VALUES (?,?,?,?)`,
-  ).run(uid(), letterId, user_id, now());
+  db.prepare(`INSERT INTO pickup_events (id, letter_id, user_id, picked_up_at) VALUES (?,?,?,?)`)
+    .run(uid(), letterId, user_id, now());
 
-  res.json({ id: letterId, tone_tag: mod.tone_tag });
+  res.json({ id: letterId, tone_tag: mod.tone_tag, title: trimmedTitle || null });
 });
 
 // GET /api/letters/:id/journey — only if user has ever picked it up
@@ -202,4 +242,39 @@ router.post('/:id/report', (req, res) => {
   res.json({ ok: true });
 });
 
-module.exports = router;
+// GET /api/pocket — letters currently held by a given user. Mounted
+// separately (see server/index.js) so this stays under /api/pocket.
+const pocketRouter = express.Router();
+
+pocketRouter.get('/', (req, res) => {
+  const { user_id } = req.query;
+  if (!user_id) return res.status(400).json({ error: 'missing_fields' });
+
+  processAutoRedrops(user_id);
+
+  const held = db.prepare(`
+    SELECT pe.id as pickup_id, pe.picked_up_at, l.id as letter_id, l.preview_line, l.tone_tag, l.hands_count,
+      (SELECT COUNT(*) FROM drop_events de WHERE de.letter_id = l.id) as drop_count
+    FROM pickup_events pe
+    JOIN letters l ON l.id = pe.letter_id
+    WHERE pe.user_id = ? AND pe.redropped_at IS NULL
+    ORDER BY pe.picked_up_at ASC
+  `).all(user_id);
+
+  const withDeadlines = held.map(h => ({
+    ...h,
+    has_been_dropped: h.drop_count > 0,
+    auto_redrop_at: new Date(new Date(h.picked_up_at).getTime() + PARAMS.AUTO_REDROP_HOURS * 3600000).toISOString()
+  }));
+
+  res.json({ letters: withDeadlines, slots_used: held.length, slots_max: PARAMS.MAX_HELD_LETTERS });
+});
+
+module.exports = {
+  lettersRouter: router,
+  pocketRouter,
+  // exposed for map.js, which also needs to run auto-redrop processing
+  // and look up a letter's current position
+  processAutoRedrops,
+  latestDropOf
+};
