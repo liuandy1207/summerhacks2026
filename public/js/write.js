@@ -1,7 +1,6 @@
 // "Write a letter" tab: word count + submit flow.
 import { userId, state } from './state.js';
 import { postLetter } from './api.js';
-import { refreshMap } from './map.js';
 
 export function initWriteView() {
   const textarea = document.getElementById('letter-text');
@@ -23,7 +22,7 @@ export function initWriteView() {
 
     if (!ok) {
       const messages = {
-        pocket_full: `Your pocket is full (max ${data.limit}). Re-drop a held letter first.`,
+        pocket_full: `Your pocket is full (max ${data.limit}). Drop a held letter first.`,
         too_long: `Keep it under ${data.max_words} words.`,
         flagged: `This letter can't be posted as written.`
       };
@@ -32,10 +31,10 @@ export function initWriteView() {
       return;
     }
 
-    statusEl.textContent = `Dropped. Tone read as "${data.tone_tag}". It's not yours anymore.`;
+    statusEl.textContent = `Saved to your pocket. Tone read as "${data.tone_tag}" — head to Pocket to drop it somewhere.`;
     statusEl.className = 'status ok';
     textarea.value = '';
     wordCountEl.textContent = '0';
-    refreshMap();
+    // no refreshMap() — nothing has actually been dropped anywhere yet
   });
 }

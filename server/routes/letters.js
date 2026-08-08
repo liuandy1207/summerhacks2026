@@ -10,43 +10,60 @@ const { heldLettersCount, latestDropOf, processAutoRedrops, redropLetter } = req
 
 const router = express.Router();
 
-// POST /api/letters — write + drop a new letter
+// POST /api/letters — write a new letter into your pocket (not dropped yet)
 // body: { user_id, lat, lng, text }
 router.post('/', (req, res) => {
   const { user_id, lat, lng, text } = req.body;
   if (!user_id || lat == null || lng == null || !text || !text.trim()) {
-    return res.status(400).json({ error: 'missing_fields' });
+    return res.status(400).json({ error: "missing_fields" });
   }
   const wordCount = text.trim().split(/\s+/).length;
   if (wordCount > PARAMS.MAX_WORDS) {
-    return res.status(400).json({ error: 'too_long', max_words: PARAMS.MAX_WORDS });
+    return res
+      .status(400)
+      .json({ error: "too_long", max_words: PARAMS.MAX_WORDS });
   }
 
   getOrCreateUser(user_id, lat, lng);
   processAutoRedrops(user_id);
 
   if (heldLettersCount(user_id) >= PARAMS.MAX_HELD_LETTERS) {
-    return res.status(409).json({ error: 'pocket_full', limit: PARAMS.MAX_HELD_LETTERS });
+    return res
+      .status(409)
+      .json({ error: "pocket_full", limit: PARAMS.MAX_HELD_LETTERS });
   }
 
   const mod = moderateAndTag(text);
   if (mod.flagged) {
-    return res.status(422).json({ error: 'flagged', reason: mod.flag_reason });
+    return res.status(422).json({ error: "flagged", reason: mod.flag_reason });
   }
 
   const letterId = uid();
-  db.prepare(`INSERT INTO letters
+  db.prepare(
+    `INSERT INTO letters
     (id, text, word_count, tone_tag, preview_line, status, created_at, hands_count, total_distance_km, upvotes, downvotes, origin_user_id)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
-    .run(letterId, text.trim(), wordCount, mod.tone_tag, mod.preview_line, 'active', now(), 0, 0, 0, 0, user_id);
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+  ).run(
+    letterId,
+    text.trim(),
+    wordCount,
+    mod.tone_tag,
+    mod.preview_line,
+    "active",
+    now(),
+    0,
+    0,
+    0,
+    0,
+    user_id,
+  );
 
-  db.prepare(`INSERT INTO drop_events (id, letter_id, user_id, lat, lng, dropped_at, is_auto_redrop)
-              VALUES (?,?,?,?,?,?,0)`)
-    .run(uid(), letterId, user_id, lat, lng, now());
-
-  // Note: writing a letter drops it immediately — it never occupies the
-  // writer's pocket. Only picked-up-and-not-yet-redropped letters count
-  // toward MAX_HELD_LETTERS.
+  // Writing a letter puts it straight into the writer's pocket — no
+  // drop_event yet. It only becomes visible on the map once they drop it
+  // (via /api/letters/:id/redrop, which doubles as "first drop").
+  db.prepare(
+    `INSERT INTO pickup_events (id, letter_id, user_id, picked_up_at) VALUES (?,?,?,?)`,
+  ).run(uid(), letterId, user_id, now());
 
   res.json({ id: letterId, tone_tag: mod.tone_tag });
 });
@@ -66,11 +83,23 @@ router.get('/:id/journey', (req, res) => {
   const pickups = db.prepare('SELECT * FROM pickup_events WHERE letter_id = ? ORDER BY picked_up_at ASC').all(id);
 
   const events = [
-    { type: 'written', at: letter.created_at },
-    ...drops.map(d => ({ type: d.is_auto_redrop ? 'auto_redropped' : (d.dropped_at === letter.created_at ? 'written' : 'redropped'), at: d.dropped_at })),
-    ...pickups.map(p => ({ type: 'picked_up', at: p.picked_up_at, reaction: p.reaction }))
-  ].filter((e, i, arr) => !(e.type === 'written' && i > 0))
-   .sort((a, b) => new Date(a.at) - new Date(b.at));
+    { type: "written", at: letter.created_at },
+    ...drops.map((d, i) => ({
+      type: d.is_auto_redrop
+        ? "auto_redropped"
+        : i === 0
+          ? "dropped"
+          : "redropped",
+      at: d.dropped_at,
+    })),
+    ...pickups.map((p) => ({
+      type: "picked_up",
+      at: p.picked_up_at,
+      reaction: p.reaction,
+    })),
+  ]
+    .filter((e, i, arr) => !(e.type === "written" && i > 0))
+    .sort((a, b) => new Date(a.at) - new Date(b.at));
 
   const totalMs = Date.now() - new Date(letter.created_at).getTime();
 
