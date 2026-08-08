@@ -20,16 +20,29 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 }
 
 // ---- users ----------------------------------------------------------------
-function getOrCreateUser(userId, lat, lng) {
-  let user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
-  if (!user) {
-    db.prepare('INSERT INTO users (id, created_at, last_lat, last_lng) VALUES (?,?,?,?)')
-      .run(userId, now(), lat ?? null, lng ?? null);
-    user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
-  } else if (lat != null && lng != null) {
-    db.prepare('UPDATE users SET last_lat = ?, last_lng = ? WHERE id = ?').run(lat, lng, userId);
+// NOTE: now async — every call site must `await` this.
+async function getOrCreateUser(userId, lat, lng) {
+  const { data: existing, error: selErr } = await db
+    .from('users').select('*').eq('id', userId).maybeSingle();
+  if (selErr) throw selErr;
+
+  if (!existing) {
+    const { data: created, error: insErr } = await db
+      .from('users')
+      .insert({ id: userId, created_at: now(), last_lat: lat ?? null, last_lng: lng ?? null })
+      .select().single();
+    if (insErr) throw insErr;
+    return created;
   }
-  return user;
+
+  if (lat != null && lng != null) {
+    const { data: updated, error: updErr } = await db
+      .from('users').update({ last_lat: lat, last_lng: lng }).eq('id', userId).select().single();
+    if (updErr) throw updErr;
+    return updated;
+  }
+
+  return existing;
 }
 
 // ---- moderation (STUB: replace with a real LLM call later) ---------------

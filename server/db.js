@@ -1,65 +1,20 @@
-// SQLite connection + schema. This is the only file that should contain
-// CREATE TABLE statements — keep schema changes centralized here.
-const Database = require('better-sqlite3');
-const path = require('path');
+// Supabase (Postgres) connection. Replaces the old SQLite file-based db.
+// Uses the service_role key because this file only runs on the server —
+// never ship this key to the browser.
+require('dotenv').config();
+const { createClient } = require('@supabase/supabase-js');
 
-const db = new Database(path.join(__dirname, '..', 'loop.db'));
-db.pragma('journal_mode = WAL');
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY,
-  created_at TEXT NOT NULL,
-  last_lat REAL,
-  last_lng REAL
-);
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error(
+    'Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY. Set them in a .env file (see .env.example).'
+  );
+}
 
-CREATE TABLE IF NOT EXISTS letters (
-  id TEXT PRIMARY KEY,
-  title TEXT,
-  text TEXT NOT NULL,
-  word_count INTEGER NOT NULL,
-  tone_tag TEXT, -- deprecated, unused
-  preview_line TEXT,
-  status TEXT NOT NULL DEFAULT 'active',
-  created_at TEXT NOT NULL,
-  hands_count INTEGER NOT NULL DEFAULT 0,
-  total_distance_km REAL NOT NULL DEFAULT 0,
-  upvotes INTEGER NOT NULL DEFAULT 0,
-  downvotes INTEGER NOT NULL DEFAULT 0,
-  origin_user_id TEXT NOT NULL
-);
-
--- Every time a letter lands somewhere (initial write, manual redrop, or auto-redrop)
-CREATE TABLE IF NOT EXISTS drop_events (
-  id TEXT PRIMARY KEY,
-  letter_id TEXT NOT NULL,
-  user_id TEXT NOT NULL,
-  lat REAL NOT NULL,
-  lng REAL NOT NULL,
-  dropped_at TEXT NOT NULL,
-  is_auto_redrop INTEGER NOT NULL DEFAULT 0,
-  FOREIGN KEY (letter_id) REFERENCES letters(id)
-);
-
--- Every time a letter is picked up. redropped_at IS NULL means user is currently holding it.
-CREATE TABLE IF NOT EXISTS pickup_events (
-  id TEXT PRIMARY KEY,
-  letter_id TEXT NOT NULL,
-  user_id TEXT NOT NULL,
-  picked_up_at TEXT NOT NULL,
-  reaction TEXT,
-  redropped_at TEXT,
-  FOREIGN KEY (letter_id) REFERENCES letters(id)
-);
-
-CREATE TABLE IF NOT EXISTS reports (
-  id TEXT PRIMARY KEY,
-  letter_id TEXT NOT NULL,
-  reason TEXT,
-  reported_by TEXT,
-  created_at TEXT NOT NULL
-);
-`);
+const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  auth: { persistSession: false }
+});
 
 module.exports = db;

@@ -22,5 +22,12 @@ app.use('/api/map', mapRouter);
 app.use('/api/pocket', pocketRouter);
 app.use('/api/dashboard', dashboardRouter);
 
+// catches errors thrown/rejected in async route handlers (see `wrap` in
+// letters.js/map.js/dashboard.js)
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ error: 'server_error' });
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`LOOP server running on http://localhost:${PORT}`));

@@ -1,1 +1,5 @@
 node_modules/
+.env
+loop.db
+loop.db-shm
+loop.db-wal

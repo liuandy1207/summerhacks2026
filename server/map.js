@@ -6,6 +6,7 @@ const { haversineKm, getOrCreateUser } = require('./shared');
 const { processAutoRedrops, latestDropOf } = require('./letters');
 
 const router = express.Router();
+const wrap = fn => (req, res, next) => fn(req, res, next).catch(next);
 
 // Deterministic angle from a letter's real position — stable across requests,
 // independent of who's asking or where they're standing.
@@ -26,18 +27,19 @@ function fuzzedPosition(letter, drop) {
   return { lat: drop.lat + latOffset, lng: drop.lng + lngOffset };
 }
 
-router.get('/', (req, res) => {
+router.get('/', wrap(async (req, res) => {
   const { user_id, lat, lng } = req.query;
   if (!user_id || lat == null || lng == null) return res.status(400).json({ error: 'missing_fields' });
   const ulat = parseFloat(lat), ulng = parseFloat(lng);
 
-  getOrCreateUser(user_id, ulat, ulng);
-  processAutoRedrops(user_id);
+  await getOrCreateUser(user_id, ulat, ulng);
+  await processAutoRedrops(user_id);
 
-  const activeLetters = db.prepare(`SELECT * FROM letters WHERE status = 'active'`).all();
+  const { data: activeLetters, error } = await db.from('letters').select('*').eq('status', 'active');
+  if (error) throw error;
 
-  const results = activeLetters.map(letter => {
-    const drop = latestDropOf(letter.id);
+  const results = (await Promise.all(activeLetters.map(async letter => {
+    const drop = await latestDropOf(letter.id);
     if (!drop) return null;
     const distKm = haversineKm(ulat, ulng, drop.lat, drop.lng);
     if (distKm > PARAMS.FOG_RADIUS_KM) return null;
@@ -61,12 +63,11 @@ router.get('/', (req, res) => {
     };
     if (revealExact) {
       base.preview_line = letter.preview_line;
-      base.tone_tag = letter.tone_tag;
     }
     return base;
-  }).filter(Boolean);
+  }))).filter(Boolean);
 
   res.json({ letters: results, params: PARAMS });
-});
+}));
 
 module.exports = router;
