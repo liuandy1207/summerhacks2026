@@ -8,13 +8,6 @@ export async function loadDashboard() {
   document.getElementById('stat-hands').textContent = data.total_hands;
   document.getElementById('stat-avg-hands').textContent = data.avg_hands_per_letter;
 
-  const maxReaction = Math.max(1, ...data.reaction_counts.map(r => r.c));
-  document.getElementById('reaction-breakdown').innerHTML = data.reaction_counts.map(r => `
-    <div class="bar-row"><span style="width:100px">${r.reaction}</span>
-      <div class="bar-track"><div class="bar-fill" style="width:${(r.c/maxReaction)*100}%"></div></div>
-      <span>${r.c}</span></div>
-  `).join('') || '<p style="color:#5B6472">No reactions yet.</p>';
-
   document.getElementById('authored-list').innerHTML = data.authored_letters.map(l => `
     <div class="slot slot-filled">
       <div class="slot-seal">✉️</div>
