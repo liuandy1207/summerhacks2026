@@ -5,7 +5,28 @@ export let map;
 let youMarker;
 let letterMarkers = [];
 
-export function initMap() {
+// Try the browser's real GPS once, at startup, to seed the initial marker
+// position. Falls back to the default (state.lat/lng, set in core.js) if
+// permission is denied, geolocation is unsupported, or it just times out —
+// this is a demo, click-to-move still works either way.
+function locateOnce() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve();
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        state.lat = pos.coords.latitude;
+        state.lng = pos.coords.longitude;
+        resolve();
+      },
+      () => resolve(), // denied / unavailable / error — keep the default center
+      { timeout: 5000 }
+    );
+  });
+}
+
+export async function initMap() {
+  await locateOnce();
+
   map = L.map('map').setView([state.lat, state.lng], 13);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OpenStreetMap contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',

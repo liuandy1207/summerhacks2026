@@ -26,7 +26,7 @@ function initTabs() {
 async function boot() {
   await loadConfig(); // must resolve before any view reads limits (e.g. MIN_WORDS)
   initTabs();
-  initMap();
+  await initMap(); // may prompt for geolocation before it can center the map
   initWriteView();
   initLetterModal();
   initJourneyModal();
