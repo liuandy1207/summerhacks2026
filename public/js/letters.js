@@ -106,6 +106,9 @@ window.promptRedrop = async function(letterId) {
 
 // ---- journey timeline modal -----------------------------------------------------
 
+let journeyMap;
+let journeyLayer;
+
 export function initJourneyModal() {
   document.getElementById('close-journey-modal').addEventListener('click', () => {
     document.getElementById('journey-modal').classList.add('hidden');
@@ -116,7 +119,7 @@ window.viewJourney = async function(letterId) {
   const { ok, data } = await fetchJourney(letterId, userId);
   if (!ok) { alert('You need to have picked this letter up to see its journey.'); return; }
 
-  const eventLabel = { written: 'Written', redropped: 'Picked up & re-dropped', auto_redropped: 'Auto-dropped (24h passed)', picked_up: 'Picked up' };
+  const eventLabel = { written: 'Written', dropped: 'Dropped', redropped: 'Picked up & re-dropped', auto_redropped: 'Auto-dropped (24h passed)', picked_up: 'Picked up' };
   document.getElementById('journey-body').innerHTML = `
     <div class="journey-stats">
       <div><b>${data.hands_count}</b> hands</div>
@@ -128,4 +131,41 @@ window.viewJourney = async function(letterId) {
     </ul>
   `;
   document.getElementById('journey-modal').classList.remove('hidden');
+
+  renderJourneyMap(data.events.filter(e => e.lat != null && e.lng != null), eventLabel);
 };
+
+function renderJourneyMap(stops, eventLabel) {
+  const mapEl = document.getElementById('journey-map');
+  if (!stops.length) { mapEl.style.display = 'none'; return; }
+  mapEl.style.display = 'block';
+
+  if (!journeyMap) {
+    journeyMap = L.map('journey-map');
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 19
+    }).addTo(journeyMap);
+  }
+  if (journeyLayer) {
+    journeyMap.removeLayer(journeyLayer);
+  }
+
+  journeyLayer = L.layerGroup().addTo(journeyMap);
+  const latlngs = stops.map(s => [s.lat, s.lng]);
+
+  L.polyline(latlngs, { color: '#9C3B34', weight: 3, dashArray: '4,6' }).addTo(journeyLayer);
+
+  stops.forEach((s, i) => {
+    const isFirst = i === 0;
+    const isLast = i === stops.length - 1;
+    const color = isLast ? '#9C3B34' : isFirst ? '#35594F' : '#5B6472';
+    L.circleMarker([s.lat, s.lng], { radius: 7, color, fillColor: color, fillOpacity: 1 })
+      .addTo(journeyLayer)
+      .bindPopup(`<b>${eventLabel[s.type] || s.type}</b><br>${new Date(s.at).toLocaleString()}`);
+  });
+
+  journeyMap.fitBounds(latlngs, { padding: [24, 24], maxZoom: 15 });
+  setTimeout(() => journeyMap.invalidateSize(), 50);
+}

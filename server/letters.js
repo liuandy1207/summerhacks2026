@@ -174,6 +174,8 @@ router.get('/:id/journey', wrap(async (req, res) => {
           ? "dropped"
           : "redropped",
       at: d.dropped_at,
+      lat: d.lat,
+      lng: d.lng
     })),
     ...pickups.map((p) => ({
       type: "picked_up",
