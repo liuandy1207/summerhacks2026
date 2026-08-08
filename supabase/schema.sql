@@ -56,3 +56,19 @@ create table if not exists reports (
 -- Security entirely — so RLS doesn't need to be configured for this app to
 -- work. If you ever call Supabase directly from the browser with the
 -- publishable/anon key, enable RLS + policies on these tables first.
+
+-- Speeds up "latest drop per letter" lookups (used by the map query below).
+create index if not exists idx_drop_events_letter_dropped
+  on drop_events (letter_id, dropped_at desc);
+
+-- One row per letter: its most recent drop_events row. Lets the map query
+-- filter by lat/lng in SQL instead of pulling every active letter into
+-- Node and re-fetching drop_events per letter to find the latest one.
+create or replace view latest_drops as
+select distinct on (letter_id) *
+from drop_events
+order by letter_id, dropped_at desc;
+
+-- Bounding-box pre-filter on the view still needs to scan latest_drops,
+-- so index its coords too.
+create index if not exists idx_latest_drops_lat_lng on drop_events (lat, lng);

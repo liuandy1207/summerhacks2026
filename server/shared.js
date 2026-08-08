@@ -19,6 +19,19 @@ function haversineKm(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// Rough lat/lng box containing everything within radiusKm of (lat, lng).
+// Cheap SQL-side pre-filter — overshoots slightly at the corners, so
+// callers should still haversine-check results before treating them as
+// "within radius".
+function boundingBox(lat, lng, radiusKm) {
+  const latDelta = radiusKm / 111; // ~111km per degree latitude
+  const lngDelta = radiusKm / (111 * Math.cos(lat * Math.PI / 180) || 1);
+  return {
+    minLat: lat - latDelta, maxLat: lat + latDelta,
+    minLng: lng - lngDelta, maxLng: lng + lngDelta
+  };
+}
+
 // ---- users ----------------------------------------------------------------
 // NOTE: now async — every call site must `await` this.
 async function getOrCreateUser(userId, lat, lng) {
@@ -78,4 +91,4 @@ function moderateAndTag(text) {
   };
 }
 
-module.exports = { now, uid, haversineKm, getOrCreateUser, moderateAndTag };
+module.exports = { now, uid, haversineKm, boundingBox, getOrCreateUser, moderateAndTag };
