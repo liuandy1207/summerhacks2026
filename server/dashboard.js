@@ -16,16 +16,12 @@ router.get('/', (req, res) => {
     SELECT reaction, COUNT(*) c FROM pickup_events
     WHERE reaction IS NOT NULL GROUP BY reaction`).all();
 
-  const toneCounts = db.prepare(`
-    SELECT tone_tag, COUNT(*) c FROM letters GROUP BY tone_tag`).all();
-
   res.json({
     total_distance_km: Math.round(totals.total_distance_km * 10) / 10,
     total_hands: totals.total_hands,
     total_letters: totals.total_letters,
     avg_hands_per_letter: Math.round(totals.avg_hands_per_letter * 10) / 10,
-    reaction_counts: reactionCounts,
-    tone_counts: toneCounts
+    reaction_counts: reactionCounts
   });
 });
 

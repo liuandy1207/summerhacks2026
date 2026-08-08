@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS letters (
   title TEXT,
   text TEXT NOT NULL,
   word_count INTEGER NOT NULL,
-  tone_tag TEXT,
+  tone_tag TEXT, -- deprecated, unused
   preview_line TEXT,
   status TEXT NOT NULL DEFAULT 'active',
   created_at TEXT NOT NULL,

@@ -30,9 +30,9 @@ function insertLetter(text, ageHours, hops) {
   const wordCount = text.trim().split(/\s+/).length;
 
   db.prepare(`INSERT INTO letters
-    (id, text, word_count, tone_tag, preview_line, status, created_at, hands_count, total_distance_km, upvotes, downvotes, origin_user_id)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
-    .run(letterId, text, wordCount, mod.tone_tag, mod.preview_line, 'active', createdAt, 0, 0, 0, 0, 'seed_user_0');
+    (id, text, word_count, preview_line, status, created_at, hands_count, total_distance_km, upvotes, downvotes, origin_user_id)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
+    .run(letterId, text, wordCount, mod.preview_line, 'active', createdAt, 0, 0, 0, 0, 'seed_user_0');
 
   let lat = jitter(TORONTO.lat, 3);
   let lng = jitter(TORONTO.lng, 3);

@@ -98,14 +98,14 @@ router.post('/', (req, res) => {
 
   const letterId = uid();
   db.prepare(`INSERT INTO letters
-    (id, title, text, word_count, tone_tag, preview_line, status, created_at, hands_count, total_distance_km, upvotes, downvotes, origin_user_id)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-    .run(letterId, trimmedTitle || null, text.trim(), wordCount, mod.tone_tag, mod.preview_line, 'active', now(), 0, 0, 0, 0, user_id);
+    (id, title, text, word_count, preview_line, status, created_at, hands_count, total_distance_km, upvotes, downvotes, origin_user_id)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
+    .run(letterId, trimmedTitle || null, text.trim(), wordCount, mod.preview_line, 'active', now(), 0, 0, 0, 0, user_id);
 
   db.prepare(`INSERT INTO pickup_events (id, letter_id, user_id, picked_up_at) VALUES (?,?,?,?)`)
     .run(uid(), letterId, user_id, now());
 
-  res.json({ id: letterId, tone_tag: mod.tone_tag, title: trimmedTitle || null });
+  res.json({ id: letterId, title: trimmedTitle || null });
 });
 
 // GET /api/letters/:id/journey — only if user has ever picked it up
@@ -188,7 +188,6 @@ router.post('/:id/pickup', (req, res) => {
   res.json({
     id: letter.id,
     text: letter.text,
-    tone_tag: letter.tone_tag,
     hands_count: letter.hands_count + 1
   });
 });
@@ -253,7 +252,7 @@ pocketRouter.get('/', (req, res) => {
   processAutoRedrops(user_id);
 
   const held = db.prepare(`
-    SELECT pe.id as pickup_id, pe.picked_up_at, l.id as letter_id, l.preview_line, l.tone_tag, l.hands_count,
+    SELECT pe.id as pickup_id, pe.picked_up_at, l.id as letter_id, l.preview_line, l.hands_count,
       (SELECT COUNT(*) FROM drop_events de WHERE de.letter_id = l.id) as drop_count
     FROM pickup_events pe
     JOIN letters l ON l.id = pe.letter_id

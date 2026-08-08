@@ -35,7 +35,7 @@ function renderFilledSlot(l) {
     <div class="slot slot-filled">
       <div class="slot-seal">✉️</div>
       <div class="pocket-preview">"${escapeHtml(l.preview_line || '')}"</div>
-      <div class="pocket-meta">tone: ${l.tone_tag} · ${statusLine}</div>
+      <div class="pocket-meta">${statusLine}</div>
       <div class="pocket-meta">auto-redrops ${new Date(l.auto_redrop_at).toLocaleString()} if you don't act</div>
       <div style="margin-top:10px; display:flex; gap:8px;">
         ${l.has_been_dropped ? `<button class="primary" style="margin-top:0" onclick="viewJourney('${l.letter_id}')">View journey</button>` : ''}
@@ -73,7 +73,7 @@ window.openLetter = async function(letterId) {
     return;
   }
 
-  document.getElementById('modal-envelope').textContent = `✉️ tone: ${data.tone_tag}`;
+  document.getElementById('modal-envelope').textContent = `✉️`;
   document.getElementById('modal-body').innerHTML = `
     <p>${escapeHtml(data.text)}</p>
     <div class="reactions">

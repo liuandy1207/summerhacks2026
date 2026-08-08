@@ -37,8 +37,7 @@ function getOrCreateUser(userId, lat, lng) {
 //
 // "You classify anonymous letters for a public letter-exchange app. Given the
 // letter text, return JSON only:
-// { tone_tag: one of [hopeful, reflective, nostalgic, calm, heavy],
-//   flagged: boolean, flag_reason: string|null, preview_line: string }
+// { flagged: boolean, flag_reason: string|null, preview_line: string }
 // flagged=true if the letter contains personal identifying info (names,
 // addresses, phone numbers), harassment, or content indicating the author
 // may be in crisis or at risk of self-harm. preview_line is a 6-10 word
@@ -52,18 +51,9 @@ const BAD_WORDS = [
   'slur1', 'slur2', 'hateword1'
 ];
 
-const TONES = ['hopeful', 'reflective', 'nostalgic', 'calm', 'heavy'];
-
 function moderateAndTag(text) {
   const lower = text.toLowerCase();
   const hitBadWord = BAD_WORDS.some(w => lower.includes(w));
-
-  // extremely naive placeholder heuristic — replace with LLM classification
-  let tone_tag = 'reflective';
-  if (/hope|excited|can't wait|grateful|thank/i.test(text)) tone_tag = 'hopeful';
-  else if (/miss|remember|used to|back then/i.test(text)) tone_tag = 'nostalgic';
-  else if (/calm|peace|quiet|breathe/i.test(text)) tone_tag = 'calm';
-  else if (/hard|heavy|hurt|lost|tired|alone/i.test(text)) tone_tag = 'heavy';
 
   const words = text.trim().split(/\s+/);
   const preview_line = words.slice(0, 8).join(' ') + (words.length > 8 ? '…' : '');
@@ -71,9 +61,8 @@ function moderateAndTag(text) {
   return {
     flagged: hitBadWord,
     flag_reason: hitBadWord ? 'blocked_word' : null,
-    tone_tag,
     preview_line
   };
 }
 
-module.exports = { now, uid, haversineKm, getOrCreateUser, moderateAndTag, TONES };
+module.exports = { now, uid, haversineKm, getOrCreateUser, moderateAndTag };

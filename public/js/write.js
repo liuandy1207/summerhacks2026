@@ -74,7 +74,7 @@ export function initWriteView() {
       return;
     }
 
-    statusEl.textContent = `Saved to your pocket. Tone read as "${data.tone_tag}" — head to Pocket to drop it somewhere.`;
+    statusEl.textContent = `Saved to your pocket. Head to Pocket to drop it somewhere.`;
     statusEl.className = 'status ok';
     titleInput.value = '';
     titleCountEl.textContent = '0';
