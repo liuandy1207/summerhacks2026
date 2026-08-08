@@ -1,8 +1,9 @@
 // Leaflet map: rendering + click-to-set-location + marker refresh.
-import { userId, state, fetchMap, escapeHtml } from './core.js';
+import { userId, state, fetchMap, escapeHtml, getConfig } from './core.js';
 
 export let map;
 let youMarker;
+let fogRing;
 let letterMarkers = [];
 
 // Try the browser's real GPS once, at startup, to seed the initial marker
@@ -34,6 +35,13 @@ export async function initMap() {
     maxZoom: 19
   }).addTo(map);
 
+  fogRing = L.circle([state.lat, state.lng], {
+    radius: getConfig().FOG_RADIUS_KM * 1000,
+    color: '#5B6472', weight: 1, opacity: 0.4,
+    fill: false,
+    interactive: false
+  }).addTo(map);
+
   youMarker = L.circleMarker([state.lat, state.lng], {
     radius: 8, color: '#9C3B34', fillColor: '#9C3B34', fillOpacity: 1
   }).addTo(map).bindPopup('You are here');
@@ -42,6 +50,7 @@ export async function initMap() {
     state.lat = e.latlng.lat;
     state.lng = e.latlng.lng;
     youMarker.setLatLng(e.latlng);
+    fogRing.setLatLng(e.latlng);
     refreshMap();
   });
 
