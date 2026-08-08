@@ -74,14 +74,13 @@ export async function refreshMap() {
       size = 24;
       iconHtml = envelopeIcon('#35594F', size);
       popupHtml = `<b>Your letter</b><br>${letter.hands_count} hands · traveling ${letter.traveling_days}d`;
-    } else if (letter.can_pick_up) {
-      size = 26;
-      iconHtml = envelopeIcon('#9C3B34', size);
-      popupHtml = `<b>${escapeHtml(letter.preview_line || '')}</b><br>${letter.hands_count} hands · traveling ${letter.traveling_days}d<br><button onclick="openLetter('${letter.id}')">Pick up</button>`;
     } else {
-      size = 14;
-      iconHtml = `<div style="width:${size}px;height:${size}px;border-radius:50%;background:#5B6472;opacity:0.5;"></div>`;
-      popupHtml = `Letter, ${letter.distance_m}m away<br>traveling ${letter.traveling_days} days`;
+      size = 26;
+      const color = letter.can_pick_up ? '#9C3B34' : '#5B6472';
+      iconHtml = envelopeIcon(color, size);
+      popupHtml = letter.can_pick_up
+        ? `<b>${escapeHtml(letter.preview_line || '')}</b><br>${letter.hands_count} hands · traveling ${letter.traveling_days}d<br><button onclick="openLetter('${letter.id}')">Pick up</button>`
+        : `<b>${escapeHtml(letter.preview_line || '')}</b><br>${letter.distance_m}m away · traveling ${letter.traveling_days}d`;
     }
 
     const icon = L.divIcon({ className: '', html: iconHtml, iconSize: [size, size] });

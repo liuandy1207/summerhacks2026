@@ -8,25 +8,6 @@ const { processAutoRedrops, latestDropOf } = require('./letters');
 const router = express.Router();
 const wrap = fn => (req, res, next) => fn(req, res, next).catch(next);
 
-// Deterministic angle from a letter's real position — stable across requests,
-// independent of who's asking or where they're standing.
-function hashToAngle(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) % 360;
-  return (h * Math.PI) / 180;
-}
-
-// Fuzzed position for fog-of-war letters: a small fixed offset from the
-// real drop point, seeded by the letter's own id so it never moves again
-// once computed — regardless of the viewer's location.
-function fuzzedPosition(letter, drop) {
-  const angle = hashToAngle(letter.id);
-  const FUZZ_RADIUS_M = 150; // how far the fake pin can sit from the real spot
-  const latOffset = (FUZZ_RADIUS_M / 111320) * Math.cos(angle);
-  const lngOffset = (FUZZ_RADIUS_M / (111320 * Math.cos(drop.lat * Math.PI / 180))) * Math.sin(angle);
-  return { lat: drop.lat + latOffset, lng: drop.lng + lngOffset };
-}
-
 router.get('/', wrap(async (req, res) => {
   const { user_id, lat, lng } = req.query;
   if (!user_id || lat == null || lng == null) return res.status(400).json({ error: 'missing_fields' });
@@ -47,9 +28,6 @@ router.get('/', wrap(async (req, res) => {
     const travelingDays = (Date.now() - new Date(drop.dropped_at).getTime()) / 86400000;
     const withinPickupRange = distKm * 1000 <= PARAMS.PICKUP_RADIUS_M;
     const isOwnDrop = drop.user_id === user_id;
-    const revealExact = withinPickupRange || isOwnDrop;
-
-    const pos = revealExact ? { lat: drop.lat, lng: drop.lng } : fuzzedPosition(letter, drop);
 
     const base = {
       id: letter.id,
@@ -58,12 +36,10 @@ router.get('/', wrap(async (req, res) => {
       traveling_days: Math.max(0, Math.round(travelingDays * 10) / 10),
       can_pick_up: withinPickupRange,
       is_own_drop: isOwnDrop,
-      lat: pos.lat,
-      lng: pos.lng
+      lat: drop.lat,
+      lng: drop.lng,
+      preview_line: letter.preview_line
     };
-    if (revealExact) {
-      base.preview_line = letter.preview_line;
-    }
     return base;
   }))).filter(Boolean);
 
