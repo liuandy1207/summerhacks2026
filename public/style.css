@@ -772,10 +772,18 @@ textarea::placeholder {
   font-size: 19px;
   line-height: 1.7;
   color: var(--ink);
+  margin: 0;
+}
+
+/* pre-wrap belongs only on the letter text itself — putting it on
+   .modal-body made it inherit into every sibling below (date, buttons,
+   contributions), so the whitespace/indentation in the JS template
+   literal that builds this markup was rendering as visible blank lines. */
+.modal-body p {
+  margin: 0;
   white-space: pre-wrap;
   overflow-wrap: break-word;
   word-break: break-word;
-  margin: 0;
 }
 
 
