@@ -22,8 +22,9 @@ router.get('/', wrap(async (req, res) => {
   const box = boundingBox(ulat, ulng, PARAMS.FOG_RADIUS_KM);
   const { data: nearbyDrops, error } = await db
     .from('latest_drops')
-    .select('letter_id, lat, lng, dropped_at, user_id, letters!inner(id, status, hands_count, preview_line, origin_user_id)')
+    .select('letter_id, lat, lng, dropped_at, user_id, letters!inner(id, status, title, hands_count, preview_line, origin_user_id, moderation_status)')
     .eq('letters.status', 'active')
+    .in('letters.moderation_status', ['clean', 'cleared'])
     .gte('lat', box.minLat).lte('lat', box.maxLat)
     .gte('lng', box.minLng).lte('lng', box.maxLng);
   if (error) throw error;
@@ -49,6 +50,7 @@ router.get('/', wrap(async (req, res) => {
       is_authored_by_you: isAuthoredByYou,
       lat: drop.lat,
       lng: drop.lng,
+      title: drop.letters.title,
       preview_line: drop.letters.preview_line
     };
   }).filter(Boolean);

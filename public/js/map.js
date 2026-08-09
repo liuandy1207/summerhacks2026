@@ -82,7 +82,7 @@ export async function refreshMap() {
     if (letter.is_authored_by_you) {
       size = 24;
       iconHtml = envelopeIcon('#35594F', size); // dark green — you wrote this one
-      popupHtml = `<b>Your letter</b><br>${letter.hands_count} hands · traveling ${letter.traveling_days}d`;
+      popupHtml = `<b>${escapeHtml(letter.title || 'Untitled')}</b><br>${letter.hands_count} hands · traveling ${letter.traveling_days}d`;
     } else if (letter.is_own_drop) {
       size = 24;
       iconHtml = envelopeIcon('#C08A2E', size); // amber — passed through your hands, not yours
