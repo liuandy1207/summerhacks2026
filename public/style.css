@@ -469,6 +469,7 @@ textarea::placeholder {
 .pocket-preview {
   font-family: var(--font-letter);
   font-style: italic;
+  font-weight: 700;
   font-size: 19px;
   line-height: 1.5;
   color: var(--ink);
@@ -662,8 +663,10 @@ textarea::placeholder {
   background: var(--overlay);
 
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
+
+  padding-top: 6vh;
 
   z-index: 2000;
 }
@@ -734,6 +737,7 @@ textarea::placeholder {
   white-space: pre-wrap;
   overflow-wrap: break-word;
   word-break: break-word;
+  margin: 0;
 }
 
 
@@ -937,8 +941,8 @@ textarea::placeholder {
 .modal-title {
   font-family: var(--font-letter);
   font-size: 24px;
-  font-weight: normal;
+  font-weight: 700;
   font-style: italic;
   color: var(--ink);
-  margin: 0 0 14px 0;
+  margin: 0 0 6px 0;
 }
