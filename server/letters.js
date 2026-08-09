@@ -416,6 +416,15 @@ router.post('/:id/contribute', wrap(async (req, res) => {
     return res.status(400).json({ error: 'too_long', max_words: PARAMS.MAX_CONTRIBUTION_WORDS });
   }
 
+  // Contributions get the same block check as letters, but no flag/review
+  // tier — there's no per-contribution review queue, and a contribution
+  // is a single short line attached to someone else's letter, not a
+  // standalone piece of content sitting on the public map by itself.
+  const mod = await moderateText(trimmed);
+  if (mod.tier === 'block') {
+    return res.status(422).json({ error: 'flagged', reason: mod.reason });
+  }
+
   const { count: contribCount, error: countErr } = await db
     .from('contributions').select('*', { count: 'exact', head: true }).eq('letter_id', id);
   if (countErr) throw countErr;

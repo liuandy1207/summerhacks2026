@@ -242,7 +242,8 @@ window.submitContribution = async function(letterId) {
       max_contributions_reached: 'This letter is full — no more room for contributions.',
       too_short: `Needs at least ${data.min_words} words.`,
       too_long: `Keep it under ${data.max_words} words.`,
-      not_holding_letter: "You're not currently holding this letter."
+      not_holding_letter: "You're not currently holding this letter.",
+      flagged: "That line can't be posted as written."
     }[data.error] || 'Could not add your contribution.');
     return;
   }
