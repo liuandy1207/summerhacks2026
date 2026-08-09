@@ -92,8 +92,8 @@ export async function refreshMap() {
       const color = letter.can_pick_up ? '#9C3B34' : '#5B6472';
       iconHtml = envelopeIcon(color, size);
       popupHtml = letter.can_pick_up
-        ? `<b>${escapeHtml(letter.preview_line || '')}</b><br>${letter.hands_count} hands · traveling ${letter.traveling_days}d<br><button onclick="openLetter('${letter.id}')">Pick up</button>`
-        : `<b>${escapeHtml(letter.preview_line || '')}</b><br>${letter.distance_m}m away · traveling ${letter.traveling_days}d`;
+        ? `<b>${escapeHtml(letter.title || 'Untitled')}</b><br>${letter.hands_count} hands · traveling ${letter.traveling_days}d<br><button onclick="openLetter('${letter.id}')">Pick up</button>`
+        : `<b>${escapeHtml(letter.title || 'Untitled')}</b><br>${letter.distance_m}m away · traveling ${letter.traveling_days}d`;
     }
 
     const icon = L.divIcon({ className: '', html: iconHtml, iconSize: [size, size] });
