@@ -60,6 +60,8 @@ async function redropLetter(letterId, userId, lat, lng, isAuto) {
     .eq('letter_id', letterId)
     .eq('user_id', userId)
     .is('redropped_at', null)
+    .order('picked_up_at', { ascending: false })
+    .limit(1)
     .maybeSingle();
   if (opErr) throw opErr;
   if (!openPickup) return { error: 'not_holding_letter' };
@@ -276,6 +278,17 @@ router.post('/:id/pickup', wrap(async (req, res) => {
   if (await heldLettersCount(user_id) >= PARAMS.MAX_HELD_LETTERS) {
     return res.status(409).json({ error: 'pocket_full', limit: PARAMS.MAX_HELD_LETTERS });
   }
+
+  const { data: alreadyHolding, error: holdErr } = await db
+    .from('pickup_events')
+    .select('id')
+    .eq('letter_id', id)
+    .eq('user_id', user_id)
+    .is('redropped_at', null)
+    .limit(1)
+    .maybeSingle();
+  if (holdErr) throw holdErr;
+  if (alreadyHolding) return res.status(409).json({ error: 'already_holding_letter' });
 
   const drop = await latestDropOf(id);
   const distM = haversineKm(lat, lng, drop.lat, drop.lng) * 1000;
