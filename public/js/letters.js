@@ -171,6 +171,7 @@ window.promptRedrop = async function(letterId) {
     alert(`Re-dropped here. Traveled ${data.distance_km.toFixed(2)}km this hop.`);
     document.getElementById('letter-modal').classList.add('hidden');
     refreshMap();
+    loadPocket();
   }
 };
 
