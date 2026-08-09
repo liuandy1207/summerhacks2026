@@ -6,6 +6,7 @@ import { initMap, invalidateMapSize } from './map.js';
 import { initWriteView } from './write.js';
 import { loadPocket, initLetterModal, initJourneyModal } from './letters.js';
 import { loadDashboard } from './dashboard.js';
+import { initIntro } from './intro.js';
 
 document.getElementById('user-id-short').textContent = userId;
 
@@ -24,6 +25,7 @@ function initTabs() {
 }
 
 async function boot() {
+  initIntro(); // shown immediately, doesn't need to wait on config/map
   await loadConfig(); // must resolve before any view reads limits (e.g. MIN_WORDS)
   initTabs();
   await initMap(); // may prompt for geolocation before it can center the map

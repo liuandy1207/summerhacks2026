@@ -81,18 +81,17 @@
     <section id="view-map" class="view active">
 
       <div class="map-hint">
-        Click anywhere on the map to set your current location
-        (simulated GPS). Letters within 2km will appear;
-        get within 50m to open one.
+        This map is a simulation — click anywhere to move your "location" instead of using real GPS.
+        Letters within 2km show up as envelopes; walk (click) within 50m of one to pick it up.
       </div>
 
       <div id="map"></div>
 
       <div class="map-legend" id="map-legend">
-        <div class="map-legend-item"><span class="map-legend-dot" style="background:#35594F"></span>Your letters</div>
-        <div class="map-legend-item"><span class="map-legend-dot" style="background:#C08A2E"></span>Just passed along by you</div>
-        <div class="map-legend-item"><span class="map-legend-dot" style="background:#9C3B34"></span>Ready to pick up</div>
-        <div class="map-legend-item"><span class="map-legend-dot" style="background:#5B6472"></span>Too far away</div>
+        <div class="map-legend-item"><span class="map-legend-dot" style="background:#35594F"></span>Letters you wrote</div>
+        <div class="map-legend-item"><span class="map-legend-dot" style="background:#C08A2E"></span>Passed through your hands</div>
+        <div class="map-legend-item"><span class="map-legend-dot" style="background:#9C3B34"></span>Close enough — click to pick up</div>
+        <div class="map-legend-item"><span class="map-legend-dot" style="background:#5B6472"></span>Too far away to pick up yet</div>
       </div>
 
     </section>
@@ -108,7 +107,8 @@
         </h1>
 
         <p class="sub">
-          Anonymous. Once you drop it, it's not yours anymore.
+          Write something anonymous for a stranger to find. Once you drop it
+          on the map, you can't get it back — but you can watch where it travels.
         </p>
 
         <input
@@ -161,8 +161,8 @@
       </h1>
 
       <p class="sub">
-        Letters you're currently holding.
-        Re-drop within 24h or they'll auto-drop where you are.
+        Letters you've picked up but haven't dropped yet — up to 3 at a time.
+        Drop each one within 24h or it'll auto-drop wherever you last were.
       </p>
 
       <div
@@ -240,7 +240,7 @@
           </div>
 
           <div class="stat-label">
-            other people's letters you've passed along
+            other people's letters you've carried and dropped
           </div>
 
         </div>
@@ -263,6 +263,45 @@
     </section>
 
   </main>
+
+
+  <!-- =========================
+       INTRO SPLASH
+       ========================= -->
+
+  <div
+    id="intro-modal"
+    class="modal hidden"
+  >
+
+    <div class="modal-card">
+
+      <h3 class="modal-title">
+        Yours, Eventually
+      </h3>
+
+      <div class="modal-body" style="font-size:16px; line-height:1.6;">
+        <p style="margin:0 0 10px 0;">A map of anonymous letters, dropped by strangers for other strangers to find.</p>
+        <p style="margin:0 0 10px 0;"><b>Write</b> a letter, then <b>drop</b> it somewhere on the map. Someone else can pick it up if they're close enough, add a line, and drop it again — further along.</p>
+        <p style="margin:0;">Watch its whole journey in <b>Data</b>. Nothing here is tied to your real name or location.</p>
+      </div>
+
+      <label style="display:flex; align-items:center; gap:8px; margin-top:20px; font-family:var(--font-body); font-size:14px; color:var(--ink-soft); cursor:pointer;">
+        <input type="checkbox" id="intro-dont-show" />
+        Don't show this again
+      </label>
+
+      <button
+        id="intro-close"
+        class="primary"
+        style="margin-top:14px;"
+      >
+        Got it
+      </button>
+
+    </div>
+
+  </div>
 
 
   <!-- =========================
