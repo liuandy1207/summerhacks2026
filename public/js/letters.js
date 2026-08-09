@@ -6,7 +6,7 @@
 // window.promptRedrop, window.viewJourney because they're invoked from
 // inline onclick="" strings in generated HTML (map popups, pocket cards,
 // the letter modal itself) — that's preserved here.
-import { userId, state, escapeHtml, fetchPocket, fetchLetterRead, pickupLetter, reactToLetter, redropLetterApi, fetchJourney } from './core.js';
+import { userId, state, escapeHtml, fetchPocket, fetchLetterRead, deleteLetter, pickupLetter, reactToLetter, redropLetterApi, fetchJourney } from './core.js';
 import { refreshMap } from './map.js';
 
 // ---- pocket tab -------------------------------------------------------------
@@ -72,6 +72,7 @@ function renderFilledSlot(l) {
       <div style="margin-top:10px; display:flex; gap:8px;" onclick="event.stopPropagation()">
         ${l.has_been_dropped ? `<button class="primary" style="margin-top:0" onclick="viewJourney('${l.letter_id}')">View journey</button>` : ''}
         <button class="primary" style="margin-top:0; background:#5B6472" onclick="promptRedrop('${l.letter_id}')">${dropLabel}</button>
+        ${!l.has_been_dropped ? `<button class="primary" style="margin-top:0; background:#9C3B34" onclick="promptDelete('${l.letter_id}')">Delete</button>` : ''}
       </div>
     </div>
   `;
@@ -168,6 +169,17 @@ window.promptRedrop = async function(letterId) {
     alert(`Re-dropped here. Traveled ${data.distance_km.toFixed(2)}km this hop.`);
     document.getElementById('letter-modal').classList.add('hidden');
     refreshMap();
+  }
+};
+
+window.promptDelete = async function(letterId) {
+  if (!confirm('Delete this letter? This can\'t be undone.')) return;
+  const { ok, data } = await deleteLetter(letterId, userId);
+  if (ok) {
+    document.getElementById('letter-modal').classList.add('hidden');
+    loadPocket();
+  } else {
+    alert({ already_dropped: "This letter's already out in the world — it can't be deleted anymore." }[data.error] || 'Could not delete letter.');
   }
 };
 

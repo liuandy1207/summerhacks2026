@@ -149,6 +149,37 @@ router.post('/', wrap(async (req, res) => {
   res.json({ id: letterId, title: trimmedTitle || null });
 }));
 
+// DELETE /api/letters/:id?user_id=... — lets an author delete their own
+// letter, but only while it's still sitting in their pocket (never
+// dropped, hands_count 0). Once it's out in the world it has a journey
+// and other people's reactions attached, so it can't be un-written.
+router.delete('/:id', wrap(async (req, res) => {
+  const { id } = req.params;
+  const { user_id } = req.query;
+  if (!user_id) return res.status(400).json({ error: 'missing_fields' });
+
+  const { data: letter, error: letErr } = await db
+    .from('letters').select('id, origin_user_id, hands_count').eq('id', id).maybeSingle();
+  if (letErr) throw letErr;
+  if (!letter) return res.status(404).json({ error: 'not_found' });
+  if (letter.origin_user_id !== user_id) return res.status(403).json({ error: 'not_your_letter' });
+
+  const { count: dropCount, error: dropErr } = await db
+    .from('drop_events').select('id', { count: 'exact', head: true }).eq('letter_id', id);
+  if (dropErr) throw dropErr;
+  if ((dropCount || 0) > 0 || letter.hands_count > 0) {
+    return res.status(409).json({ error: 'already_dropped' });
+  }
+
+  const { error: delPickupErr } = await db.from('pickup_events').delete().eq('letter_id', id);
+  if (delPickupErr) throw delPickupErr;
+
+  const { error: delLetterErr } = await db.from('letters').delete().eq('id', id);
+  if (delLetterErr) throw delLetterErr;
+
+  res.json({ ok: true });
+}));
+
 // GET /api/letters/:id/read — full text of a letter you're currently
 // holding OR authored. Unlike POST /pickup, this doesn't check proximity
 // or create a new pickup_event — it's for re-reading something you

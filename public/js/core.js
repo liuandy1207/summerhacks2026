@@ -103,6 +103,12 @@ export async function fetchDashboard(userId) {
   return res.json();
 }
 
+export async function deleteLetter(id, userId) {
+  const res = await fetch(`${API}/api/letters/${id}?user_id=${userId}`, { method: 'DELETE' });
+  const data = await res.json();
+  return { ok: res.ok, data };
+}
+
 export async function fetchLetterRead(id, userId) {
   const res = await fetch(`${API}/api/letters/${id}/read?user_id=${userId}`);
   const data = await res.json();
