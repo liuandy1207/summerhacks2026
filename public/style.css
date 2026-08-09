@@ -815,6 +815,89 @@ textarea::placeholder {
 
 
 /* =========================
+   CONTRIBUTIONS
+   ========================= */
+
+.modal-date {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin: -2px 0 14px 0;
+}
+
+.contribute-box {
+  margin-top: 20px;
+  padding: 16px;
+
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+}
+
+.contribute-box label {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-bottom: 8px;
+}
+
+.contribute-box textarea {
+  min-height: 70px;
+  font-size: 16px;
+  padding: 12px;
+}
+
+.contributions {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.contributions-heading {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  margin: 0 0 12px 0;
+}
+
+.contributions-empty {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-style: italic;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+.contribution {
+  padding: 10px 0;
+}
+
+.contribution + .contribution {
+  border-top: 1px solid var(--line);
+}
+
+.contribution-text {
+  font-family: var(--font-letter);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--ink);
+  margin: 0 0 4px 0;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.contribution-meta {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+
+/* =========================
    JOURNEY TIMELINE
    ========================= */
 

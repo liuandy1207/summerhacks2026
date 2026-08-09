@@ -1,12 +1,13 @@
 // Everything about interacting with letters you're holding or reading:
-// the "Pocket" tab, the letter-reading modal (pickup / react / re-drop),
-// and the journey timeline modal.
+// the "Pocket" tab, the letter-reading modal (pickup / contribute / react /
+// re-drop), and the journey timeline modal.
 //
 // letterModal.js / pocket.js used to expose window.openLetter, window.react,
 // window.promptRedrop, window.viewJourney because they're invoked from
 // inline onclick="" strings in generated HTML (map popups, pocket cards,
-// the letter modal itself) — that's preserved here.
-import { userId, state, escapeHtml, fetchPocket, fetchLetterRead, deleteLetter, pickupLetter, reactToLetter, redropLetterApi, fetchJourney } from './core.js';
+// the letter modal itself) — that's preserved here, including the new
+// window.submitContribution / window.skipContribution handlers.
+import { userId, state, getConfig, escapeHtml, fetchPocket, fetchLetterRead, deleteLetter, pickupLetter, contributeToLetter, reactToLetter, redropLetterApi, fetchJourney } from './core.js';
 import { refreshMap } from './map.js';
 
 // ---- pocket tab -------------------------------------------------------------
@@ -100,20 +101,27 @@ export function initLetterModal() {
   });
 }
 
-window.openLetter = async function(letterId) {
-  const { ok, data } = await pickupLetter(letterId, { user_id: userId, lat: state.lat, lng: state.lng });
-  if (!ok) {
-    alert({
-      pocket_full: `Your pocket is full (max ${data.limit}).`,
-      too_far: `Too far away (${data.distance_m}m).`,
-      cannot_pickup_own_last_drop: `You just dropped this one.`
-    }[data.error] || 'Could not pick up.');
-    return;
-  }
+function formatDate(iso) {
+  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function formatLocation(lat, lng) {
+  return `${lat.toFixed(3)}, ${lng.toFixed(3)}`;
+}
+
+// Renders the letter body + date + reactions + (optionally) the contribute
+// box + contributions list + action buttons into the modal. Shared by
+// openLetter (fresh pickup — may offer to contribute) and readLetter
+// (re-reading something already in your pocket or authored by you — no
+// contribute offer, that choice was already made at pickup time).
+function renderLetterModal(letterId, data, { canRedrop, canContribute }) {
+  const atLimit = data.contributions.length >= data.max_contributions;
+  const showComposeBox = canContribute && !atLimit;
 
   document.getElementById('modal-envelope').textContent = `✉️`;
   document.getElementById('modal-title').textContent = data.title || 'Untitled';
   document.getElementById('modal-body').innerHTML = `
+    <div class="modal-date">${formatDate(data.created_at)}</div>
     <p>${escapeHtml(data.text)}</p>
     <div class="reactions">
       <button onclick="react('${letterId}','seen')">Felt seen</button>
@@ -121,18 +129,81 @@ window.openLetter = async function(letterId) {
       <button onclick="react('${letterId}','moved')">Moved</button>
       <button onclick="react('${letterId}','unsettled')">Unsettled</button>
     </div>
+    ${showComposeBox ? renderComposeBox(letterId) : ''}
+    <div class="contributions">
+      <h4 class="contributions-heading">Contributions (<span id="contributions-count">${data.contributions.length}</span>/${data.max_contributions})</h4>
+      <div id="contributions-list">${renderContributions(data.contributions)}</div>
+    </div>
     <div style="margin-top:20px; display:flex; gap:10px;">
       <button class="primary" style="margin-top:0" onclick="viewJourney('${letterId}')">View journey</button>
-      <button class="primary" style="margin-top:0; background:#5B6472" onclick="promptRedrop('${letterId}')">Re-drop here</button>
+      ${canRedrop ? `<button class="primary" style="margin-top:0; background:#5B6472" onclick="promptRedrop('${letterId}')">Re-drop here</button>` : ''}
     </div>
   `;
   document.getElementById('letter-modal').classList.remove('hidden');
+}
+
+function renderContributions(contributions) {
+  if (!contributions.length) {
+    return `<p class="contributions-empty">No contributions yet — be the first to add a line.</p>`;
+  }
+  return contributions.map((c, i) => `
+    <div class="contribution">
+      <p class="contribution-text">${escapeHtml(c.text)}</p>
+      <div class="contribution-meta">Contributor ${i + 1} · ${formatDate(c.created_at)} · ${c.dropped_at ? formatLocation(c.lat, c.lng) : 'in transit'}</div>
+    </div>
+  `).join('');
+}
+
+function renderComposeBox(letterId) {
+  const { MIN_CONTRIBUTION_WORDS, MAX_CONTRIBUTION_WORDS } = getConfig();
+  return `
+    <div class="contribute-box" id="contribute-box">
+      <label for="contribute-text">Add a line before you drop it (${MIN_CONTRIBUTION_WORDS}–${MAX_CONTRIBUTION_WORDS} words)</label>
+      <textarea id="contribute-text" rows="3"></textarea>
+      <div class="word-count" id="contribute-word-count">0 words</div>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button class="primary" style="margin-top:0" onclick="submitContribution('${letterId}')">Contribute</button>
+        <button class="primary" style="margin-top:0; background:#5B6472" onclick="skipContribution()">Skip</button>
+      </div>
+    </div>
+  `;
+}
+
+// Wires the live word counter on the compose box's textarea. Called after
+// the compose box is inserted into the DOM (innerHTML doesn't run scripts
+// or re-attach listeners, so this has to happen post-render).
+function wireComposeBox() {
+  const textarea = document.getElementById('contribute-text');
+  const countEl = document.getElementById('contribute-word-count');
+  if (!textarea || !countEl) return;
+  textarea.addEventListener('input', () => {
+    const words = textarea.value.trim().split(/\s+/).filter(Boolean).length;
+    countEl.textContent = `${words} word${words === 1 ? '' : 's'}`;
+  });
+}
+
+window.openLetter = async function(letterId) {
+  const { ok, data } = await pickupLetter(letterId, { user_id: userId, lat: state.lat, lng: state.lng });
+  if (!ok) {
+    alert({
+      pocket_full: `Your pocket is full (max ${data.limit}).`,
+      too_far: `Too far away (${data.distance_m}m).`,
+      cannot_pickup_own_last_drop: `You just dropped this one.`,
+      already_holding_letter: `You're already holding this letter.`
+    }[data.error] || 'Could not pick up.');
+    return;
+  }
+
+  renderLetterModal(letterId, data, { canRedrop: true, canContribute: true });
+  wireComposeBox();
   refreshMap();
 };
 
 // Opens the reading modal for a letter you already hold or authored —
 // used by Pocket and Data tab cards. Unlike openLetter(), this doesn't
-// call the pickup endpoint (no proximity check, no new pickup_event).
+// call the pickup endpoint (no proximity check, no new pickup_event) and
+// never offers to contribute — that choice was already made when this
+// letter was picked up.
 // canRedrop should only be true when the letter is currently in your
 // pocket (Pocket tab cards); Data tab letters may already be dropped
 // elsewhere, so they only get Read + View journey.
@@ -143,22 +214,39 @@ window.readLetter = async function(letterId, canRedrop) {
     return;
   }
 
-  document.getElementById('modal-envelope').textContent = `✉️`;
-  document.getElementById('modal-title').textContent = data.title || 'Untitled';
-  document.getElementById('modal-body').innerHTML = `
-    <p>${escapeHtml(data.text)}</p>
-    <div class="reactions">
-      <button onclick="react('${letterId}','seen')">Felt seen</button>
-      <button onclick="react('${letterId}','less_alone')">Felt less alone</button>
-      <button onclick="react('${letterId}','moved')">Moved</button>
-      <button onclick="react('${letterId}','unsettled')">Unsettled</button>
-    </div>
-    <div style="margin-top:20px; display:flex; gap:10px;">
-      <button class="primary" style="margin-top:0" onclick="viewJourney('${letterId}')">View journey</button>
-      ${canRedrop ? `<button class="primary" style="margin-top:0; background:#5B6472" onclick="promptRedrop('${letterId}')">Re-drop here</button>` : ''}
-    </div>
-  `;
-  document.getElementById('letter-modal').classList.remove('hidden');
+  renderLetterModal(letterId, data, { canRedrop, canContribute: false });
+};
+
+window.submitContribution = async function(letterId) {
+  const textarea = document.getElementById('contribute-text');
+  const text = textarea.value.trim();
+  const { MIN_CONTRIBUTION_WORDS, MAX_CONTRIBUTION_WORDS } = getConfig();
+  const words = text.split(/\s+/).filter(Boolean).length;
+
+  if (words < MIN_CONTRIBUTION_WORDS || words > MAX_CONTRIBUTION_WORDS) {
+    alert(`Contributions need to be ${MIN_CONTRIBUTION_WORDS}–${MAX_CONTRIBUTION_WORDS} words (yours is ${words}).`);
+    return;
+  }
+
+  const { ok, data } = await contributeToLetter(letterId, { user_id: userId, text });
+  if (!ok) {
+    alert({
+      already_contributed: 'You already added a line to this letter.',
+      max_contributions_reached: 'This letter is full — no more room for contributions.',
+      too_short: `Needs at least ${data.min_words} words.`,
+      too_long: `Keep it under ${data.max_words} words.`,
+      not_holding_letter: "You're not currently holding this letter."
+    }[data.error] || 'Could not add your contribution.');
+    return;
+  }
+
+  document.getElementById('contribute-box')?.remove();
+  document.getElementById('contributions-list').innerHTML = renderContributions(data.contributions);
+  document.getElementById('contributions-count').textContent = data.contributions.length;
+};
+
+window.skipContribution = function() {
+  document.getElementById('contribute-box')?.remove();
 };
 
 window.react = async function(letterId, reaction) {

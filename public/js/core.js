@@ -69,6 +69,16 @@ export async function pickupLetter(id, payload) {
   return { ok: res.ok, data };
 }
 
+export async function contributeToLetter(id, payload) {
+  const res = await fetch(`${API}/api/letters/${id}/contribute`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  return { ok: res.ok, data };
+}
+
 export async function reactToLetter(id, payload) {
   await fetch(`${API}/api/letters/${id}/react`, {
     method: 'POST',

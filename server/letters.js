@@ -1,13 +1,17 @@
-// Everything for the "letters" feature: writing, picking up, reacting,
-// redropping, voting, reporting, journey history, and the pocket list of
-// letters a user currently holds. Exports one router mounted twice by
-// server/index.js (at /api/letters and /api/pocket).
+// Everything for the "letters" feature: writing, picking up, contributing,
+// reacting, redropping, voting, reporting, journey history, and the pocket
+// list of letters a user currently holds. Exports one router mounted twice
+// by server/index.js (at /api/letters and /api/pocket).
 const express = require('express');
 const db = require('./db');
 const PARAMS = require('./config');
 const { now, uid, haversineKm, getOrCreateUser, moderateAndTag } = require('./shared');
 
 // ---- shared letter logic (used by multiple routes below) -----------------
+
+function wordCount(text) {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
 
 // letters this user currently holds (picked up, not yet redropped)
 async function heldLettersCount(userId) {
@@ -28,6 +32,18 @@ async function latestDropOf(letterId) {
     .order('dropped_at', { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+// every contribution on a letter, oldest first — each one shows who's
+// "contributor N", when it was written, and (once dropped) where
+async function getContributions(letterId) {
+  const { data, error } = await db
+    .from('contributions')
+    .select('*')
+    .eq('letter_id', letterId)
+    .order('created_at', { ascending: true });
   if (error) throw error;
   return data;
 }
@@ -68,16 +84,26 @@ async function redropLetter(letterId, userId, lat, lng, isAuto) {
 
   const prevDrop = await latestDropOf(letterId);
   const dist = prevDrop ? haversineKm(prevDrop.lat, prevDrop.lng, lat, lng) : 0;
+  const dropTime = now();
 
   const { error: insErr } = await db.from('drop_events').insert({
     id: uid(), letter_id: letterId, user_id: userId, lat, lng,
-    dropped_at: now(), is_auto_redrop: !!isAuto
+    dropped_at: dropTime, is_auto_redrop: !!isAuto
   });
   if (insErr) throw insErr;
 
   const { error: updErr } = await db
-    .from('pickup_events').update({ redropped_at: now() }).eq('id', openPickup.id);
+    .from('pickup_events').update({ redropped_at: dropTime }).eq('id', openPickup.id);
   if (updErr) throw updErr;
+
+  // if this holder wrote a contribution while holding the letter, it's been
+  // "in transit" until now — attach this drop's time/location to it
+  const { error: contribErr } = await db
+    .from('contributions')
+    .update({ dropped_at: dropTime, lat, lng })
+    .eq('pickup_event_id', openPickup.id)
+    .is('dropped_at', null);
+  if (contribErr) throw contribErr;
 
   const { data: letter, error: letErr } = await db
     .from('letters').select('total_distance_km').eq('id', letterId).single();
@@ -115,11 +141,11 @@ router.post('/', wrap(async (req, res) => {
     return res.status(400).json({ error: 'title_too_long', max_title_length: PARAMS.MAX_TITLE_LENGTH });
   }
 
-  const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
-  if (wordCount < PARAMS.MIN_WORDS) {
+  const wc = wordCount(text);
+  if (wc < PARAMS.MIN_WORDS) {
     return res.status(400).json({ error: 'too_short', min_words: PARAMS.MIN_WORDS });
   }
-  if (wordCount > PARAMS.MAX_WORDS) {
+  if (wc > PARAMS.MAX_WORDS) {
     return res.status(400).json({ error: 'too_long', max_words: PARAMS.MAX_WORDS });
   }
 
@@ -137,7 +163,7 @@ router.post('/', wrap(async (req, res) => {
 
   const letterId = uid();
   const { error: insLetterErr } = await db.from('letters').insert({
-    id: letterId, title: trimmedTitle || null, text: text.trim(), word_count: wordCount,
+    id: letterId, title: trimmedTitle || null, text: text.trim(), word_count: wc,
     preview_line: mod.preview_line, status: 'active', created_at: now(),
     hands_count: 0, total_distance_km: 0, upvotes: 0, downvotes: 0, origin_user_id: user_id
   });
@@ -192,7 +218,7 @@ router.get('/:id/read', wrap(async (req, res) => {
   if (!user_id) return res.status(400).json({ error: 'missing_fields' });
 
   const { data: letter, error: letErr } = await db
-    .from('letters').select('id, title, text, origin_user_id').eq('id', id).maybeSingle();
+    .from('letters').select('id, title, text, created_at, origin_user_id').eq('id', id).maybeSingle();
   if (letErr) throw letErr;
   if (!letter) return res.status(404).json({ error: 'not_found' });
 
@@ -201,13 +227,25 @@ router.get('/:id/read', wrap(async (req, res) => {
   if (!currentlyHeld) {
     const { data: held, error: heldErr } = await db
       .from('pickup_events').select('id')
-      .eq('letter_id', id).eq('user_id', user_id).is('redropped_at', null).maybeSingle();
+      .eq('letter_id', id).eq('user_id', user_id).is('redropped_at', null)
+      .order('picked_up_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
     if (heldErr) throw heldErr;
     currentlyHeld = !!held;
   }
   if (!currentlyHeld) return res.status(403).json({ error: 'not_yours_to_read' });
 
-  res.json({ id: letter.id, title: letter.title, text: letter.text });
+  const contributions = await getContributions(id);
+
+  res.json({
+    id: letter.id,
+    title: letter.title,
+    text: letter.text,
+    created_at: letter.created_at,
+    contributions,
+    max_contributions: PARAMS.MAX_CONTRIBUTIONS
+  });
 }));
 
 // GET /api/letters/:id/journey — only if user has ever picked it up
@@ -311,12 +349,74 @@ router.post('/:id/pickup', wrap(async (req, res) => {
     .from('letters').update({ hands_count: letter.hands_count + 1 }).eq('id', id);
   if (updErr) throw updErr;
 
+  const contributions = await getContributions(id);
+
   res.json({
     id: letter.id,
     title: letter.title,
     text: letter.text,
-    hands_count: letter.hands_count + 1
+    created_at: letter.created_at,
+    hands_count: letter.hands_count + 1,
+    contributions,
+    max_contributions: PARAMS.MAX_CONTRIBUTIONS
   });
+}));
+
+// POST /api/letters/:id/contribute   body: { user_id, text }
+// Adds one sentence (min/max word count in PARAMS) from whoever currently
+// holds this letter. One contribution per hold — you get one line per
+// pickup, not per letter. Its location/date show as "in transit" until
+// this same hold is redropped (see redropLetter above), at which point
+// the drop's time/location get attached.
+router.post('/:id/contribute', wrap(async (req, res) => {
+  const { id } = req.params;
+  const { user_id, text } = req.body;
+  if (!user_id || !text || !text.trim()) return res.status(400).json({ error: 'missing_fields' });
+
+  const { data: openPickup, error: opErr } = await db
+    .from('pickup_events')
+    .select('id')
+    .eq('letter_id', id)
+    .eq('user_id', user_id)
+    .is('redropped_at', null)
+    .order('picked_up_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (opErr) throw opErr;
+  if (!openPickup) return res.status(403).json({ error: 'not_holding_letter' });
+
+  const { data: already, error: alreadyErr } = await db
+    .from('contributions').select('id')
+    .eq('pickup_event_id', openPickup.id)
+    .limit(1)
+    .maybeSingle();
+  if (alreadyErr) throw alreadyErr;
+  if (already) return res.status(409).json({ error: 'already_contributed' });
+
+  const trimmed = text.trim();
+  const wc = wordCount(trimmed);
+  if (wc < PARAMS.MIN_CONTRIBUTION_WORDS) {
+    return res.status(400).json({ error: 'too_short', min_words: PARAMS.MIN_CONTRIBUTION_WORDS });
+  }
+  if (wc > PARAMS.MAX_CONTRIBUTION_WORDS) {
+    return res.status(400).json({ error: 'too_long', max_words: PARAMS.MAX_CONTRIBUTION_WORDS });
+  }
+
+  const { count: contribCount, error: countErr } = await db
+    .from('contributions').select('*', { count: 'exact', head: true }).eq('letter_id', id);
+  if (countErr) throw countErr;
+  if ((contribCount || 0) >= PARAMS.MAX_CONTRIBUTIONS) {
+    return res.status(409).json({ error: 'max_contributions_reached', max_contributions: PARAMS.MAX_CONTRIBUTIONS });
+  }
+
+  const { error: insErr } = await db.from('contributions').insert({
+    id: uid(), letter_id: id, user_id, pickup_event_id: openPickup.id,
+    text: trimmed, word_count: wc, created_at: now()
+  });
+  if (insErr) throw insErr;
+
+  const contributions = await getContributions(id);
+  res.json({ ok: true, contributions, max_contributions: PARAMS.MAX_CONTRIBUTIONS });
 }));
 
 // POST /api/letters/:id/react   body: { user_id, reaction }
