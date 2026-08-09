@@ -6,7 +6,7 @@ export async function loadDashboard() {
   document.getElementById('hero-distance').textContent = data.total_distance_km;
   document.getElementById('stat-letters').textContent = data.total_letters;
   document.getElementById('stat-hands').textContent = data.total_hands;
-  document.getElementById('stat-avg-hands').textContent = data.avg_hands_per_letter;
+  document.getElementById('stat-avg-hands').textContent = data.letters_passed_along;
 
   document.getElementById('authored-list').innerHTML = `
     <div class="pocket-slots">${data.authored_letters.map(renderAuthoredCard).join('')}</div>

@@ -19,7 +19,6 @@ router.get('/', wrap(async (req, res) => {
   const total_distance_km = letters.reduce((s, l) => s + (l.total_distance_km || 0), 0);
   const total_hands = letters.reduce((s, l) => s + (l.hands_count || 0), 0);
   const total_letters = letters.length;
-  const avg_hands_per_letter = total_letters ? total_hands / total_letters : 0;
 
   const letterIds = letters.map(l => l.id);
   let reaction_counts = [];
@@ -36,11 +35,21 @@ router.get('/', wrap(async (req, res) => {
     reaction_counts = Object.entries(counts).map(([reaction, c]) => ({ reaction, c }));
   }
 
+  // Letters this user has picked up that someone ELSE wrote — i.e. how
+  // many other people's letters they've interacted with / passed along.
+  const { data: passedAlongRows, error: passedErr } = await db
+    .from('pickup_events')
+    .select('id, letters!inner(origin_user_id)')
+    .eq('user_id', user_id)
+    .neq('letters.origin_user_id', user_id);
+  if (passedErr) throw passedErr;
+  const letters_passed_along = passedAlongRows.length;
+
   res.json({
     total_distance_km: Math.round(total_distance_km * 10) / 10,
     total_hands,
     total_letters,
-    avg_hands_per_letter: Math.round(avg_hands_per_letter * 10) / 10,
+    letters_passed_along: letters_passed_along || 0,
     reaction_counts,
     authored_letters: letters.map(l => ({
       id: l.id,
