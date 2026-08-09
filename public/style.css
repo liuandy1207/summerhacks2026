@@ -678,8 +678,9 @@ textarea::placeholder {
   width: 90%;
   max-height: 85vh;
   overflow-y: auto;
+  overflow-x: hidden;
 
-  padding: 32px;
+  padding: 36px 32px;
 
   position: relative;
   border: 1px solid var(--line);
@@ -731,6 +732,8 @@ textarea::placeholder {
   line-height: 1.7;
   color: var(--ink);
   white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 

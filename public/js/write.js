@@ -51,6 +51,11 @@ export function initWriteView() {
       statusEl.className = 'status error';
       return;
     }
+    if (!title) {
+      statusEl.textContent = 'Give your letter a title.';
+      statusEl.className = 'status error';
+      return;
+    }
     if (title.length > MAX_TITLE_LENGTH) {
       statusEl.textContent = `Keep the title under ${MAX_TITLE_LENGTH} characters.`;
       statusEl.className = 'status error';
@@ -66,6 +71,7 @@ export function initWriteView() {
         pocket_full: `Your pocket is full (max ${data.limit}). Drop a held letter first.`,
         too_short: `Write at least ${data.min_words} words.`,
         too_long: `Keep it under ${data.max_words} words.`,
+        title_required: `Give your letter a title.`,
         title_too_long: `Keep the title under ${data.max_title_length} characters.`,
         flagged: `This letter can't be posted as written.`
       };

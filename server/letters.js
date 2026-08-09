@@ -106,6 +106,9 @@ router.post('/', wrap(async (req, res) => {
   }
 
   const trimmedTitle = (title || '').trim();
+  if (!trimmedTitle) {
+    return res.status(400).json({ error: 'title_required' });
+  }
   if (trimmedTitle.length > PARAMS.MAX_TITLE_LENGTH) {
     return res.status(400).json({ error: 'title_too_long', max_title_length: PARAMS.MAX_TITLE_LENGTH });
   }
@@ -347,7 +350,7 @@ pocketRouter.get('/', wrap(async (req, res) => {
 
   const { data: held, error } = await db
     .from('pickup_events')
-    .select('id, picked_up_at, letters!inner(id, preview_line, hands_count)')
+    .select('id, picked_up_at, letters!inner(id, title, preview_line, hands_count)')
     .eq('user_id', user_id)
     .is('redropped_at', null)
     .order('picked_up_at', { ascending: true });
@@ -365,6 +368,7 @@ pocketRouter.get('/', wrap(async (req, res) => {
       pickup_id: h.id,
       picked_up_at: h.picked_up_at,
       letter_id: h.letters.id,
+      title: h.letters.title,
       preview_line: h.letters.preview_line,
       hands_count: h.letters.hands_count,
       has_been_dropped: count > 0,

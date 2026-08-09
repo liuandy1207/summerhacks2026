@@ -40,7 +40,7 @@ function renderFilledSlot(l) {
   return `
     <div class="slot slot-filled" style="cursor:pointer" onclick="readLetter('${l.letter_id}', true)">
       <div class="slot-seal">✉️</div>
-      <div class="pocket-preview">"${escapeHtml(l.preview_line || '')}"</div>
+      <div class="pocket-preview">${escapeHtml(l.title || 'Untitled')}</div>
       <div class="pocket-meta">${statusLine}</div>
       <div class="pocket-meta">auto-redrops ${new Date(l.auto_redrop_at).toLocaleString()} if you don't act</div>
       <div style="margin-top:10px; display:flex; gap:8px;" onclick="event.stopPropagation()">
