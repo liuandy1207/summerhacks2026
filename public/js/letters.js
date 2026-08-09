@@ -127,12 +127,7 @@ function renderLetterModal(letterId, data, { canRedrop, canContribute }) {
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-date">${formatDate(data.created_at)}</div>
     <p>${escapeHtml(data.text)}</p>
-    <div class="reactions">
-      <button onclick="react('${letterId}','seen')">Felt seen</button>
-      <button onclick="react('${letterId}','less_alone')">Felt less alone</button>
-      <button onclick="react('${letterId}','moved')">Moved</button>
-      <button onclick="react('${letterId}','unsettled')">Unsettled</button>
-    </div>
+    <div class="reactions" id="reactions">${renderReactions(letterId, data.reactions, data.my_reaction)}</div>
     ${showComposeBox ? renderComposeBox(letterId) : ''}
     ${showAlreadyContributedNote ? `<p class="contribute-note">You've already added a line to this letter this round.</p>` : ''}
     <div class="contributions">
@@ -145,6 +140,25 @@ function renderLetterModal(letterId, data, { canRedrop, canContribute }) {
     </div>
   `;
   document.getElementById('letter-modal').classList.remove('hidden');
+}
+
+const REACTIONS = [
+  { key: 'seen', label: 'Felt seen' },
+  { key: 'less_alone', label: 'Felt less alone' },
+  { key: 'moved', label: 'Moved' },
+  { key: 'unsettled', label: 'Unsettled' }
+];
+
+function renderReactions(letterId, reactions = {}, myReaction = null) {
+  return REACTIONS.map(({ key, label }) => {
+    const count = reactions[key] || 0;
+    const active = myReaction === key;
+    return `
+      <button class="${active ? 'active' : ''}" onclick="react('${letterId}','${key}')">
+        ${label}${count ? `<span class="reaction-count">${count}</span>` : ''}
+      </button>
+    `;
+  }).join('');
 }
 
 function renderContributions(contributions) {
@@ -258,7 +272,10 @@ window.skipContribution = function() {
 };
 
 window.react = async function(letterId, reaction) {
-  await reactToLetter(letterId, { user_id: userId, reaction });
+  const { ok, data } = await reactToLetter(letterId, { user_id: userId, reaction });
+  if (!ok) return;
+  const el = document.getElementById('reactions');
+  if (el) el.innerHTML = renderReactions(letterId, data.reactions, data.my_reaction);
 };
 
 window.promptRedrop = async function(letterId) {

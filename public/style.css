@@ -821,6 +821,21 @@ textarea::placeholder {
   background: var(--white);
 }
 
+.reactions button.active {
+  border: 1px dashed var(--seal);
+  color: var(--seal);
+  background: rgba(122, 52, 44, 0.04);
+}
+
+.reactions button .reaction-count {
+  color: var(--ink-soft);
+  margin-left: 4px;
+}
+
+.reactions button.active .reaction-count {
+  color: var(--seal);
+}
+
 
 /* =========================
    CONTRIBUTIONS

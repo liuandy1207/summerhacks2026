@@ -48,6 +48,32 @@ async function getContributions(letterId) {
   return data;
 }
 
+// how many pickup_events on this letter carry each reaction, plus
+// (when userId is given) whichever reaction that user's own most recent
+// pickup_event on this letter carries, if any — used to render counts
+// next to the reaction buttons and to highlight the user's own pick
+async function getReactions(letterId, userId) {
+  const { data, error } = await db
+    .from('pickup_events')
+    .select('user_id, reaction, picked_up_at')
+    .eq('letter_id', letterId)
+    .not('reaction', 'is', null);
+  if (error) throw error;
+
+  const counts = {};
+  for (const row of data) counts[row.reaction] = (counts[row.reaction] || 0) + 1;
+
+  let myReaction = null;
+  if (userId) {
+    const mine = data
+      .filter(row => row.user_id === userId)
+      .sort((a, b) => new Date(b.picked_up_at) - new Date(a.picked_up_at))[0];
+    myReaction = mine ? mine.reaction : null;
+  }
+
+  return { counts, myReaction };
+}
+
 // process any letters this user is holding past the auto-redrop window
 async function processAutoRedrops(userId) {
   const cutoff = new Date(Date.now() - PARAMS.AUTO_REDROP_HOURS * 3600000).toISOString();
@@ -250,6 +276,7 @@ router.get('/:id/read', wrap(async (req, res) => {
   }
 
   const contributions = await getContributions(id);
+  const { counts: reactions, myReaction } = await getReactions(id, user_id);
 
   res.json({
     id: letter.id,
@@ -258,7 +285,9 @@ router.get('/:id/read', wrap(async (req, res) => {
     created_at: letter.created_at,
     contributions,
     max_contributions: PARAMS.MAX_CONTRIBUTIONS,
-    can_contribute: canContribute
+    can_contribute: canContribute,
+    reactions,
+    my_reaction: myReaction
   });
 }));
 
@@ -364,6 +393,7 @@ router.post('/:id/pickup', wrap(async (req, res) => {
   if (updErr) throw updErr;
 
   const contributions = await getContributions(id);
+  const { counts: reactions, myReaction } = await getReactions(id, user_id);
 
   res.json({
     id: letter.id,
@@ -372,7 +402,9 @@ router.post('/:id/pickup', wrap(async (req, res) => {
     created_at: letter.created_at,
     hands_count: letter.hands_count + 1,
     contributions,
-    max_contributions: PARAMS.MAX_CONTRIBUTIONS
+    max_contributions: PARAMS.MAX_CONTRIBUTIONS,
+    reactions,
+    my_reaction: myReaction
   });
 }));
 
@@ -443,9 +475,15 @@ router.post('/:id/contribute', wrap(async (req, res) => {
 }));
 
 // POST /api/letters/:id/react   body: { user_id, reaction }
+// One reaction per pickup_event. Clicking the same reaction again clears
+// it (toggle off); clicking a different one swaps it. Returns the fresh
+// per-reaction counts and the user's current pick so the buttons can be
+// updated without a separate re-fetch of the whole letter.
 router.post('/:id/react', wrap(async (req, res) => {
   const { id } = req.params;
   const { user_id, reaction } = req.body;
+  if (!user_id || !reaction) return res.status(400).json({ error: 'missing_fields' });
+
   const { data: pe, error: peErr } = await db
     .from('pickup_events')
     .select('*')
@@ -455,9 +493,12 @@ router.post('/:id/react', wrap(async (req, res) => {
   if (peErr) throw peErr;
   if (!pe) return res.status(404).json({ error: 'no_pickup_found' });
 
-  const { error: updErr } = await db.from('pickup_events').update({ reaction }).eq('id', pe.id);
+  const newReaction = pe.reaction === reaction ? null : reaction;
+  const { error: updErr } = await db.from('pickup_events').update({ reaction: newReaction }).eq('id', pe.id);
   if (updErr) throw updErr;
-  res.json({ ok: true });
+
+  const { counts: reactions, myReaction } = await getReactions(id, user_id);
+  res.json({ ok: true, reactions, my_reaction: myReaction });
 }));
 
 // POST /api/letters/:id/redrop   body: { user_id, lat, lng }

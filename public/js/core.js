@@ -80,11 +80,13 @@ export async function contributeToLetter(id, payload) {
 }
 
 export async function reactToLetter(id, payload) {
-  await fetch(`${API}/api/letters/${id}/react`, {
+  const res = await fetch(`${API}/api/letters/${id}/react`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
+  const data = await res.json();
+  return { ok: res.ok, data };
 }
 
 export async function redropLetterApi(id, payload) {
