@@ -300,6 +300,7 @@ router.post('/:id/pickup', wrap(async (req, res) => {
 
   res.json({
     id: letter.id,
+    title: letter.title,
     text: letter.text,
     hands_count: letter.hands_count + 1
   });

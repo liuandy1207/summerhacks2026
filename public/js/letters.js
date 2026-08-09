@@ -112,6 +112,7 @@ window.openLetter = async function(letterId) {
   }
 
   document.getElementById('modal-envelope').textContent = `✉️`;
+  document.getElementById('modal-title').textContent = data.title || 'Untitled';
   document.getElementById('modal-body').innerHTML = `
     <p>${escapeHtml(data.text)}</p>
     <div class="reactions">
@@ -143,6 +144,7 @@ window.readLetter = async function(letterId, canRedrop) {
   }
 
   document.getElementById('modal-envelope').textContent = `✉️`;
+  document.getElementById('modal-title').textContent = data.title || 'Untitled';
   document.getElementById('modal-body').innerHTML = `
     <p>${escapeHtml(data.text)}</p>
     <div class="reactions">
