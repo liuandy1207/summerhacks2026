@@ -29,6 +29,32 @@ export async function loadPocket() {
     <p style="color:#5B6472; margin-bottom:16px;">${data.slots_used} / ${data.slots_max} slots used</p>
     <div class="pocket-slots">${slots.join('')}</div>
   `;
+  tickCountdowns();
+}
+
+// Ticks every .countdown element in the DOM once a second (only pocket
+// cards have them). Runs continuously from page load rather than being
+// started/stopped per tab switch — cheap even when the pocket tab isn't
+// visible, and avoids re-wiring an interval on every loadPocket() call.
+function tickCountdowns() {
+  document.querySelectorAll('.countdown').forEach(el => {
+    const deadline = new Date(el.dataset.deadline).getTime();
+    const msLeft = deadline - Date.now();
+    el.textContent = msLeft <= 0
+      ? 'auto-redropping…'
+      : `auto-redrops in ${formatCountdown(msLeft)}`;
+  });
+}
+setInterval(tickCountdowns, 1000);
+
+function formatCountdown(ms) {
+  let totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  totalSeconds -= hours * 3600;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds - minutes * 60;
+  const pad = n => String(n).padStart(2, '0');
+  return `${hours}:${pad(minutes)}:${pad(seconds)}`;
 }
 
 function renderFilledSlot(l) {
@@ -42,7 +68,7 @@ function renderFilledSlot(l) {
       <div class="slot-seal">✉️</div>
       <div class="pocket-preview">${escapeHtml(l.title || 'Untitled')}</div>
       <div class="pocket-meta">${statusLine}</div>
-      <div class="pocket-meta">auto-redrops ${new Date(l.auto_redrop_at).toLocaleString()} if you don't act</div>
+      <div class="pocket-meta countdown" data-deadline="${l.auto_redrop_at}">calculating…</div>
       <div style="margin-top:10px; display:flex; gap:8px;" onclick="event.stopPropagation()">
         ${l.has_been_dropped ? `<button class="primary" style="margin-top:0" onclick="viewJourney('${l.letter_id}')">View journey</button>` : ''}
         <button class="primary" style="margin-top:0; background:#5B6472" onclick="promptRedrop('${l.letter_id}')">${dropLabel}</button>
