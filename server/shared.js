@@ -125,7 +125,14 @@ async function moderateText(text) {
     // Fail closed to 'flag', not 'block' — a moderation outage shouldn't
     // silently publish unfiltered content, but it also shouldn't hard-reject
     // every letter your users write while the API is down.
-    console.error('moderateText: OpenAI moderation call failed, flagging for review', err);
+    //
+    // Logged as plain strings (not the raw Error object) — some log
+    // dashboards mangle nested fetch errors (Node wraps network failures
+    // in a `cause` chain) when they try to pretty-print them directly.
+    console.error('moderateText: OpenAI moderation call failed, flagging for review');
+    console.error('  name:', err && err.name);
+    console.error('  message:', err && err.message);
+    console.error('  cause:', err && err.cause ? String(err.cause) : 'none');
     return { tier: 'flag', reason: 'moderation_api_error', preview_line: previewLine(text) };
   }
 }
