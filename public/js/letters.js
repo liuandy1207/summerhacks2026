@@ -265,7 +265,17 @@ window.promptRedrop = async function(letterId) {
   if (ok) {
     alert(`Re-dropped here. Traveled ${data.distance_km.toFixed(2)}km this hop.`);
     document.getElementById('letter-modal').classList.add('hidden');
-    refreshMap();
+    // The pocket state (drop already succeeded server-side) must update
+    // regardless of whether the map refresh succeeds — previously these
+    // ran back-to-back with no error handling, so a throw in refreshMap()
+    // (e.g. a transient fetch failure) silently skipped loadPocket(),
+    // leaving the Pocket tab stale until the user switched tabs away and
+    // back (which calls loadPocket() independently from main.js).
+    try {
+      await refreshMap();
+    } catch (err) {
+      console.error('refreshMap failed after redrop:', err);
+    }
     loadPocket();
   }
 };

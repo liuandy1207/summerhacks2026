@@ -56,6 +56,27 @@ create table if not exists reports (
   created_at timestamptz not null default now()
 );
 
+-- One row per line someone adds while holding a letter. dropped_at/lat/lng
+-- stay null while "in transit" (written but not yet re-dropped) — redrop
+-- fills them in once the holder drops the letter that carries this line.
+create table if not exists contributions (
+  id text primary key,
+  letter_id text not null references letters(id),
+  user_id text not null,
+  pickup_event_id text not null references pickup_events(id),
+  text text not null,
+  word_count integer not null,
+  created_at timestamptz not null default now(),
+  dropped_at timestamptz,
+  lat double precision,
+  lng double precision
+);
+
+create index if not exists idx_contributions_letter_created
+  on contributions (letter_id, created_at);
+create index if not exists idx_contributions_pickup_event
+  on contributions (pickup_event_id);
+
 -- The server connects with the service_role key, which bypasses Row Level
 -- Security entirely — so RLS doesn't need to be configured for this app to
 -- work. If you ever call Supabase directly from the browser with the
