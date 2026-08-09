@@ -5,7 +5,7 @@
 const express = require('express');
 const db = require('./db');
 const PARAMS = require('./config');
-const { now, uid, haversineKm, getOrCreateUser, moderateAndTag } = require('./shared');
+const { now, uid, haversineKm, getOrCreateUser, moderateText } = require('./shared');
 
 // ---- shared letter logic (used by multiple routes below) -----------------
 
@@ -156,16 +156,18 @@ router.post('/', wrap(async (req, res) => {
     return res.status(409).json({ error: 'pocket_full', limit: PARAMS.MAX_HELD_LETTERS });
   }
 
-  const mod = moderateAndTag(text);
-  if (mod.flagged) {
-    return res.status(422).json({ error: 'flagged', reason: mod.flag_reason });
+  const mod = await moderateText(text);
+  if (mod.tier === 'block') {
+    return res.status(422).json({ error: 'flagged', reason: mod.reason });
   }
 
   const letterId = uid();
   const { error: insLetterErr } = await db.from('letters').insert({
     id: letterId, title: trimmedTitle || null, text: text.trim(), word_count: wc,
     preview_line: mod.preview_line, status: 'active', created_at: now(),
-    hands_count: 0, total_distance_km: 0, upvotes: 0, downvotes: 0, origin_user_id: user_id
+    hands_count: 0, total_distance_km: 0, upvotes: 0, downvotes: 0, origin_user_id: user_id,
+    moderation_status: mod.tier === 'flag' ? 'pending_review' : 'clean',
+    moderation_reason: mod.reason
   });
   if (insLetterErr) throw insLetterErr;
 
@@ -174,7 +176,7 @@ router.post('/', wrap(async (req, res) => {
   });
   if (insPickupErr) throw insPickupErr;
 
-  res.json({ id: letterId, title: trimmedTitle || null });
+  res.json({ id: letterId, title: trimmedTitle || null, pending_review: mod.tier === 'flag' });
 }));
 
 // DELETE /api/letters/:id?user_id=... — lets an author delete their own

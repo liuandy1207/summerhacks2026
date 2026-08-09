@@ -13,5 +13,11 @@ module.exports = {
   LOST_MIN_AGE_HOURS: 48,
   MIN_CONTRIBUTION_WORDS: 5,   // NEW — per-contribution sentence, not the letter itself
   MAX_CONTRIBUTION_WORDS: 30,  // NEW
-  MAX_CONTRIBUTIONS: 10        // NEW — how many people can add a line to one letter
+  MAX_CONTRIBUTIONS: 10,       // NEW — how many people can add a line to one letter
+
+  // Scored against OpenAI Moderation API category scores (0-1, highest
+  // category wins). >= BLOCK -> rejected outright. >= FLAG -> saved but
+  // held for review, hidden from the public map. Below FLAG -> clean.
+  MODERATION_BLOCK_THRESHOLD: 0.8,
+  MODERATION_FLAG_THRESHOLD: 0.4
 };

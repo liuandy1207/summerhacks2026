@@ -3,6 +3,7 @@
 // reaching into several tiny utility modules.
 const crypto = require('crypto');
 const db = require('./db');
+const PARAMS = require('./config');
 
 // ---- ids / time --------------------------------------------------------
 const now = () => new Date().toISOString();
@@ -58,37 +59,75 @@ async function getOrCreateUser(userId, lat, lng) {
   return existing;
 }
 
-// ---- moderation (STUB: replace with a real LLM call later) ---------------
-// The system prompt to use when you do:
+// ---- moderation ------------------------------------------------------------
+// 3-tier result: 'block' (rejected, nothing saved), 'flag' (saved but held
+// for review, kept off the public map), 'clean' (saved as-is).
 //
-// "You classify anonymous letters for a public letter-exchange app. Given the
-// letter text, return JSON only:
-// { flagged: boolean, flag_reason: string|null, preview_line: string }
-// flagged=true if the letter contains personal identifying info (names,
-// addresses, phone numbers), harassment, or content indicating the author
-// may be in crisis or at risk of self-harm. preview_line is a 6-10 word
-// anonymized teaser with no identifying details, safe to show on a public
-// map pin before pickup."
-//
-// IMPORTANT: if you ever wire up real self-harm flagging, do NOT just silently
-// block the letter — route it to a human-reviewed support flow instead.
+// IMPORTANT: self-harm content should never be silently blocked — it's
+// classified as 'flag' (a human reviews it) rather than 'block', so a
+// letter from someone in crisis doesn't just vanish with a generic error.
 const BAD_WORDS = [
-  // minimal placeholder list — swap for a real profanity/hate-speech list
+  // fallback-only placeholder list, used when OPENAI_API_KEY isn't set —
+  // swap for a real profanity/hate-speech list if you rely on this path
   'slur1', 'slur2', 'hateword1'
 ];
 
-function moderateAndTag(text) {
-  const lower = text.toLowerCase();
-  const hitBadWord = BAD_WORDS.some(w => lower.includes(w));
-
+function previewLine(text) {
   const words = text.trim().split(/\s+/);
-  const preview_line = words.slice(0, 8).join(' ') + (words.length > 8 ? '…' : '');
+  return words.slice(0, 8).join(' ') + (words.length > 8 ? '…' : '');
+}
 
+function keywordModerate(text) {
+  const lower = text.toLowerCase();
+  const hit = BAD_WORDS.find(w => lower.includes(w));
   return {
-    flagged: hitBadWord,
-    flag_reason: hitBadWord ? 'blocked_word' : null,
-    preview_line
+    tier: hit ? 'block' : 'clean',
+    reason: hit ? 'blocked_word' : null,
+    preview_line: previewLine(text)
   };
 }
 
-module.exports = { now, uid, haversineKm, boundingBox, getOrCreateUser, moderateAndTag };
+async function openAiModerate(text) {
+  const res = await fetch('https://api.openai.com/v1/moderations', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+    },
+    body: JSON.stringify({ model: 'omni-moderation-latest', input: text })
+  });
+  if (!res.ok) throw new Error(`moderation_api_${res.status}`);
+
+  const data = await res.json();
+  const result = data.results[0];
+  const scores = result.category_scores || {};
+  const [topCategory, topScore] = Object.entries(scores)
+    .reduce((best, entry) => entry[1] > best[1] ? entry : best, ['none', 0]);
+
+  let tier = 'clean';
+  if (topScore >= PARAMS.MODERATION_BLOCK_THRESHOLD) tier = 'block';
+  else if (topScore >= PARAMS.MODERATION_FLAG_THRESHOLD) tier = 'flag';
+
+  return {
+    tier,
+    reason: tier === 'clean' ? null : topCategory,
+    preview_line: previewLine(text)
+  };
+}
+
+// Returns { tier: 'block'|'flag'|'clean', reason: string|null, preview_line }
+async function moderateText(text) {
+  if (!process.env.OPENAI_API_KEY) return keywordModerate(text);
+
+  try {
+    return await openAiModerate(text);
+  } catch (err) {
+    // Fail closed to 'flag', not 'block' — a moderation outage shouldn't
+    // silently publish unfiltered content, but it also shouldn't hard-reject
+    // every letter your users write while the API is down.
+    console.error('moderateText: OpenAI moderation call failed, flagging for review', err);
+    return { tier: 'flag', reason: 'moderation_api_error', preview_line: previewLine(text) };
+  }
+}
+
+module.exports = { now, uid, haversineKm, boundingBox, getOrCreateUser, moderateText };

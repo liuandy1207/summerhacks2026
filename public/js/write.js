@@ -80,7 +80,9 @@ export function initWriteView() {
       return;
     }
 
-    statusEl.textContent = `Saved to your pocket. Head to Pocket to drop it somewhere.`;
+    statusEl.textContent = data.pending_review
+      ? `Saved to your pocket. It's under review before it can be dropped publicly.`
+      : `Saved to your pocket. Head to Pocket to drop it somewhere.`;
     statusEl.className = 'status ok';
     titleInput.value = '';
     titleCountEl.textContent = '0';

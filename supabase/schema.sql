@@ -20,8 +20,12 @@ create table if not exists letters (
   total_distance_km double precision not null default 0,
   upvotes integer not null default 0,
   downvotes integer not null default 0,
-  origin_user_id text not null
+  origin_user_id text not null,
+  moderation_status text not null default 'clean', -- 'clean' | 'pending_review' | 'cleared'
+  moderation_reason text
 );
+
+create index if not exists letters_moderation_status_idx on letters(moderation_status);
 
 -- Every time a letter lands somewhere (initial write, manual redrop, or auto-redrop)
 create table if not exists drop_events (
