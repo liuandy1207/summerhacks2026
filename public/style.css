@@ -880,6 +880,14 @@ textarea::placeholder {
   margin: 0;
 }
 
+.contribute-note {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-style: italic;
+  color: var(--ink-soft);
+  margin: 20px 0 0 0;
+}
+
 .contribution {
   padding: 10px 0;
 }

@@ -225,18 +225,29 @@ router.get('/:id/read', wrap(async (req, res) => {
   if (!letter) return res.status(404).json({ error: 'not_found' });
 
   const isAuthor = letter.origin_user_id === user_id;
-  let currentlyHeld = isAuthor;
-  if (!currentlyHeld) {
-    const { data: held, error: heldErr } = await db
-      .from('pickup_events').select('id')
-      .eq('letter_id', id).eq('user_id', user_id).is('redropped_at', null)
-      .order('picked_up_at', { ascending: false })
+  const { data: openPickup, error: heldErr } = await db
+    .from('pickup_events').select('id')
+    .eq('letter_id', id).eq('user_id', user_id).is('redropped_at', null)
+    .order('picked_up_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (heldErr) throw heldErr;
+
+  const currentlyHeld = isAuthor || !!openPickup;
+  if (!currentlyHeld) return res.status(403).json({ error: 'not_yours_to_read' });
+
+  // can only contribute while actively holding it (an open pickup_event) —
+  // an author who already dropped it is just reading, same as anyone else
+  let canContribute = false;
+  if (openPickup) {
+    const { data: already, error: alreadyErr } = await db
+      .from('contributions').select('id')
+      .eq('pickup_event_id', openPickup.id)
       .limit(1)
       .maybeSingle();
-    if (heldErr) throw heldErr;
-    currentlyHeld = !!held;
+    if (alreadyErr) throw alreadyErr;
+    canContribute = !already;
   }
-  if (!currentlyHeld) return res.status(403).json({ error: 'not_yours_to_read' });
 
   const contributions = await getContributions(id);
 
@@ -246,7 +257,8 @@ router.get('/:id/read', wrap(async (req, res) => {
     text: letter.text,
     created_at: letter.created_at,
     contributions,
-    max_contributions: PARAMS.MAX_CONTRIBUTIONS
+    max_contributions: PARAMS.MAX_CONTRIBUTIONS,
+    can_contribute: canContribute
   });
 }));
 

@@ -117,6 +117,10 @@ function formatLocation(lat, lng) {
 function renderLetterModal(letterId, data, { canRedrop, canContribute }) {
   const atLimit = data.contributions.length >= data.max_contributions;
   const showComposeBox = canContribute && !atLimit;
+  // canContribute is only ever false here because the read route determined
+  // this hold already has a contribution attached — not because contributing
+  // doesn't apply at all (readLetter only passes it through when currently held).
+  const showAlreadyContributedNote = !canContribute && !atLimit && canRedrop;
 
   document.getElementById('modal-envelope').textContent = `✉️`;
   document.getElementById('modal-title').textContent = data.title || 'Untitled';
@@ -130,6 +134,7 @@ function renderLetterModal(letterId, data, { canRedrop, canContribute }) {
       <button onclick="react('${letterId}','unsettled')">Unsettled</button>
     </div>
     ${showComposeBox ? renderComposeBox(letterId) : ''}
+    ${showAlreadyContributedNote ? `<p class="contribute-note">You've already added a line to this letter this round.</p>` : ''}
     <div class="contributions">
       <h4 class="contributions-heading">Contributions (<span id="contributions-count">${data.contributions.length}</span>/${data.max_contributions})</h4>
       <div id="contributions-list">${renderContributions(data.contributions)}</div>
@@ -201,9 +206,10 @@ window.openLetter = async function(letterId) {
 
 // Opens the reading modal for a letter you already hold or authored —
 // used by Pocket and Data tab cards. Unlike openLetter(), this doesn't
-// call the pickup endpoint (no proximity check, no new pickup_event) and
-// never offers to contribute — that choice was already made when this
-// letter was picked up.
+// call the pickup endpoint (no proximity check, no new pickup_event).
+// Whether contributing is offered now depends on data.can_contribute from
+// the server: true only if you're currently holding it (open pickup_event)
+// and haven't already added a line during this hold.
 // canRedrop should only be true when the letter is currently in your
 // pocket (Pocket tab cards); Data tab letters may already be dropped
 // elsewhere, so they only get Read + View journey.
@@ -214,7 +220,8 @@ window.readLetter = async function(letterId, canRedrop) {
     return;
   }
 
-  renderLetterModal(letterId, data, { canRedrop, canContribute: false });
+  renderLetterModal(letterId, data, { canRedrop, canContribute: data.can_contribute });
+  wireComposeBox();
 };
 
 window.submitContribution = async function(letterId) {
