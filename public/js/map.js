@@ -79,10 +79,14 @@ export async function refreshMap() {
 
     let iconHtml, popupHtml, size;
 
-    if (letter.is_own_drop) {
+    if (letter.is_authored_by_you) {
       size = 24;
-      iconHtml = envelopeIcon('#35594F', size);
+      iconHtml = envelopeIcon('#35594F', size); // dark green — you wrote this one
       popupHtml = `<b>Your letter</b><br>${letter.hands_count} hands · traveling ${letter.traveling_days}d`;
+    } else if (letter.is_own_drop) {
+      size = 24;
+      iconHtml = envelopeIcon('#C08A2E', size); // amber — passed through your hands, not yours
+      popupHtml = `<b>Passed along by you</b><br>${letter.hands_count} hands · traveling ${letter.traveling_days}d`;
     } else {
       size = 26;
       const color = letter.can_pick_up ? '#9C3B34' : '#5B6472';

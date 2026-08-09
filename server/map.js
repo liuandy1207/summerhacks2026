@@ -22,7 +22,7 @@ router.get('/', wrap(async (req, res) => {
   const box = boundingBox(ulat, ulng, PARAMS.FOG_RADIUS_KM);
   const { data: nearbyDrops, error } = await db
     .from('latest_drops')
-    .select('letter_id, lat, lng, dropped_at, user_id, letters!inner(id, status, hands_count, preview_line)')
+    .select('letter_id, lat, lng, dropped_at, user_id, letters!inner(id, status, hands_count, preview_line, origin_user_id)')
     .eq('letters.status', 'active')
     .gte('lat', box.minLat).lte('lat', box.maxLat)
     .gte('lng', box.minLng).lte('lng', box.maxLng);
@@ -37,6 +37,7 @@ router.get('/', wrap(async (req, res) => {
     const travelingDays = (Date.now() - new Date(drop.dropped_at).getTime()) / 86400000;
     const withinPickupRange = distKm * 1000 <= PARAMS.PICKUP_RADIUS_M;
     const isOwnDrop = drop.user_id === user_id;
+    const isAuthoredByYou = drop.letters.origin_user_id === user_id;
 
     return {
       id: drop.letters.id,
@@ -45,6 +46,7 @@ router.get('/', wrap(async (req, res) => {
       traveling_days: Math.max(0, Math.round(travelingDays * 10) / 10),
       can_pick_up: withinPickupRange,
       is_own_drop: isOwnDrop,
+      is_authored_by_you: isAuthoredByYou,
       lat: drop.lat,
       lng: drop.lng,
       preview_line: drop.letters.preview_line
